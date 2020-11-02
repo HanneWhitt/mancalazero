@@ -2,12 +2,17 @@
 import tensorflow as tf
 
 
-class PolicyAndValue(tf.keras.layers.Layer):
+class PolicyAndValue(tf.keras.Model):
 
     '''
-    A neural network to take as input mancala board state vector s (len 14) an policy vector p (len 6) and scalar estimated value v
+    A neural network to take as input:
+    - mancala board state vector s
+    - mancala board binary legal moves mask (len 6)
+    And output: 
+    - a policy vector p (len 6) 
+    - scalar estimated value v
 
-    Main body is a simple MLP with batch normalisation which effectively produces a board embedding. 
+    Main body is a simple MLP with batch normalisation, effectively produces a board embedding. 
     
     Both policy and value head then have a layer or two to themselves to enable some specialisation in the way they use 
     the shared board embedding. Trying to imitate approach taken in much bigger CNN in DeepMind publications
@@ -41,25 +46,31 @@ class PolicyAndValue(tf.keras.layers.Layer):
                             6, # 6 possible moves in mancala
                             hidden_layers=policy_head_layers, 
                             main_activation=main_activation, 
-                            out_activation='softmax', # We want a probability distribution
+                            out_activation='linear', # No output activation yet - apply legal move mask first, then softmax
                             batchnorm_kwargs=batchnorm_kwargs)
+
+        self.policy_softmax = tf.keras.layers.Softmax()
         
         self.value_head = MLP(self, 
                             1, # scalar estimated value
                             hidden_layers=value_head_layers, 
                             main_activation=main_activation, 
-                            out_activation='sigmoid', # We want a single probability between 0 and 1.
+                            out_activation='tanh', # We want a value between -1 (certain loss) and 1 (certain win).
                             batchnorm_kwargs=batchnorm_kwargs)
 
 
-    def call(self, s):
+    def call(self, s, legal_moves):
 
         s = self.main_body(s)
 
         if self.use_batchnorm:
             s = self.embedding_batchnorm(s)
 
+        # Force the network to return a valid probability distribution with 0 for illegal moves
         p = self.policy_head(s)
+        p = tf.multiply(p, legal_moves)
+        p = self.policy_softmax(p)
+
         v = self.value_head(s)
 
         return p, v

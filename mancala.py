@@ -1,7 +1,7 @@
 import numpy as np
 
 
-class Board:
+class MancalaBoard:
 
     '''
     An object to represent a game of mancala, implementing board representations, legal moves, game termination/win conditions etc.
@@ -28,6 +28,8 @@ class Board:
                 capture_last_stone_in_zero_hole=True,
                 no_moves_policy='end_game'):
         
+        self.starting_stones = starting_stones
+
         if board_start is None:
             # New game
             self.board = np.ones(14, dtype=np.uint8)*starting_stones
@@ -50,7 +52,7 @@ class Board:
         self.no_moves_policy = no_moves_policy
 
 
-    def get_board_state(self):
+    def get_representation(self):
         
         '''
         Add a feature for the current player and the turn number onto the board representation to create a full feature representation of the board. 
@@ -126,8 +128,11 @@ class Board:
 
 
     def get_legal_moves(self, mask_format=False):
-        legal_move_indices = np.nonzero(self.board[:6])[0]
-        return legal_move_indices
+        if mask_format:
+            raise NotImplementedError
+        else:
+            legal_move_indices = np.nonzero(self.board[:6])[0]
+            return legal_move_indices
 
 
     def check_score(self):
@@ -154,7 +159,7 @@ class Board:
         return self.board[:6].sum() == self.board[7:13].sum() == 0
 
 
-    def check_winner(self, p1_victory_value = 'Player 1 wins!', p2_victory_value = 'Player 2 wins!', draw_value = 'Draw!'):
+    def check_winner(self, p1_victory_value = 1, p2_victory_value = 2, draw_value = None):
 
         '''
         Return winner of terminated game.
@@ -198,7 +203,7 @@ class Board:
             self.display()
             if self.game_over():
                 print('\nGame Over!')
-                print(self.check_winner())
+                print(self.check_winner(p1_victory_value = 'Player 1 wins!', p2_victory_value = 'Player 2 wins!', draw_value = 'Draw!'))
                 break
             else:
                 if show_features:
@@ -208,14 +213,28 @@ class Board:
                     self.move(int(player_entry) - 1)
 
 
+    def __copy__(self):
+        return MancalaBoard(current_player=self.current_player, 
+                            board_start=self.board,
+                            turn_number=self.turn_number,
+                            starting_stones=self.starting_stones,
+                            place_in_opponent_store=self.place_in_opponent_store,
+                            capture_last_stone_in_zero_hole=self.capture_last_stone_in_zero_hole,
+                            no_moves_policy=self.no_moves_policy)
+        
+        
 
 if __name__ == '__main__':
 
-    print('hi')
+    # rep = None #[0, 0, 0, 0, 0, 5, 31, 0, 0, 0, 0, 0, 0, 0]
+    # current_player = 1
 
-    rep = None #[0, 0, 0, 0, 0, 5, 31, 0, 0, 0, 0, 0, 0, 0]
-    current_player = 1
+    board1 = MancalaBoard()
+    board1.move(1)
+    board2 = board1.copy()
+    board2.move(2)
 
-    board1 = Board(board_start=rep, current_player=current_player)
-    board1.play_in_console(show_features=True)
+    board1.display()
+    board2.display()
+
 
