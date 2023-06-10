@@ -1,4 +1,5 @@
 import numpy as np
+import warnings
 
 
 class MancalaBoard:
@@ -19,6 +20,8 @@ class MancalaBoard:
 
     '''
 
+    warnings.simplefilter('always', UserWarning)
+
     def __init__(self,
                 current_player=1, 
                 board_start=None,
@@ -26,6 +29,7 @@ class MancalaBoard:
                 starting_stones=3,
                 place_in_opponent_store=False,
                 capture_last_stone_in_zero_hole=True,
+                illegal_moves_policy='raise',
                 no_moves_policy='end_game'):
         
         self.starting_stones = starting_stones
@@ -48,6 +52,10 @@ class MancalaBoard:
         # Variables for rules version
         self.place_in_opponent_store = place_in_opponent_store
         self.capture_last_stone_in_zero_hole = capture_last_stone_in_zero_hole
+
+        assert illegal_moves_policy in ['warn', 'raise'], "illegal_moves_policy must be in ['warn', 'raise']"
+        self.illegal_moves_policy = illegal_moves_policy
+
         assert no_moves_policy in ['end_game', 'pass_back'], "no_moves_policy must be in ['end_game', 'pass_back']"
         self.no_moves_policy = no_moves_policy
 
@@ -74,7 +82,13 @@ class MancalaBoard:
         '''
 
         legal_moves = self.get_legal_moves()
-        assert move in legal_moves, 'Illegal or invalid move!'
+
+        if move not in legal_moves:
+            if self.illegal_moves_policy is 'warn':
+                warnings.warn('Illegal or invalid move!')
+                return
+            else:
+                raise ValueError('Illegal or invalid move!')
 
         # MOVE STONES
         # Pick up stones
@@ -226,15 +240,8 @@ class MancalaBoard:
 
 if __name__ == '__main__':
 
-    # rep = None #[0, 0, 0, 0, 0, 5, 31, 0, 0, 0, 0, 0, 0, 0]
-    # current_player = 1
+    board1 = MancalaBoard(illegal_moves_policy='warn')
 
-    board1 = MancalaBoard()
-    board1.move(1)
-    board2 = board1.copy()
-    board2.move(2)
-
-    board1.display()
-    board2.display()
+    board1.play_in_console()
 
 
