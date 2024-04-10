@@ -1,8 +1,9 @@
 import numpy as np
 import warnings
+from Game import GameState
 
 
-class MancalaBoard:
+class MancalaBoard(GameState):
 
     '''
     An object to represent a game of mancala, implementing board representations, legal moves, game termination/win conditions etc.
@@ -20,58 +21,86 @@ class MancalaBoard:
 
     '''
 
-    warnings.simplefilter('always', UserWarning)
-
-    def __init__(self,
-        current_player=1, 
-        board_start=None,
-        turn_number=0,
+    def __init__(
+        self,
+        state=None,
+        check_validity=True,
         starting_stones=3,
         place_in_opponent_store=False,
         capture_last_stone_in_zero_hole=True,
-        illegal_moves_policy='raise',
         no_moves_policy='end_game'
     ):
 
-        self.starting_stones = starting_stones
-
-        if board_start is None:
-            # New game
-            self.board = np.ones(14, dtype=np.uint8)*starting_stones
-            self.board[[6, 13]] = 0 # These spaces represent stores, which start empty
-        else:
-            self.board = np.array(board_start, dtype=np.uint8).reshape(14)
-
-        # Check board validity using the total number of stones - important if board object created from non-start position.
-        self.total_stones = starting_stones*12
-        self.check_valid()
-
-        # Current player and turn number included for book-keeping but can also be added as features
-        self.current_player = current_player 
-        self.turn_number = turn_number
-
         # Variables for rules version
+        self.starting_stones = starting_stones
         self.place_in_opponent_store = place_in_opponent_store
         self.capture_last_stone_in_zero_hole = capture_last_stone_in_zero_hole
-
-        assert illegal_moves_policy in ['warn', 'raise'], "illegal_moves_policy must be in ['warn', 'raise']"
-        self.illegal_moves_policy = illegal_moves_policy
-
-        assert no_moves_policy in ['end_game', 'pass_back'], "no_moves_policy must be in ['end_game', 'pass_back']"
+        if no_moves_policy not in ['end_game', 'pass_back']:
+            raise ValueError("no_moves_policy must be in ['end_game', 'pass_back']")
         self.no_moves_policy = no_moves_policy
 
+        # Initialise parent
+        super().__init__(state, check_validity)
 
-    def get_representation(self):
-        
+
+
+    def new_game_state(self):
         '''
-        Add a feature for the current player and the turn number onto the board representation to create a full feature representation of the board. 
+        Return the state of a new game
         '''
+        start_state = np.ones(16, dtype=np.uint8)*self.starting_stones
+        # These spaces represent stores, which start empty, current player indicator, and turn number
+        start_state[[6, 13, -2, -1]] = 0
+        return start_state
+    
 
-        player_feature = self.current_player - 1
-        return np.concatenate([self.board, [player_feature, self.turn_number]])
+    @property
+    def board(self):
+        '''
+        Return the part of the state vector representing the mancala board
+        '''
+        return self.state[:14]
 
 
-    def move(self, move):
+    @property
+    def current_player(self):
+        '''
+        Return the part of the state vector representing the current player (0 or 1)
+        '''
+        return self.state[-2]
+
+
+    @property
+    def turn_number(self):
+        '''
+        Return the part of the state vector representing the turn number
+        '''
+        return self.state[-1]
+
+
+    def check_state_validity(self):
+        # Check total number of stones on board
+        if not self.board.sum() == 12*self.starting_stones:
+            raise RuntimeError('Wrong number of stones on board!')
+        # Check player index
+        if self.current_player not in [0, 1]:
+            raise RuntimeError('Player index not 0 or 1')
+        # Check all elements of state tensor positive
+        if not np.all(self.state >= 0):
+            raise RuntimeError('Negative value in state tensor')
+
+
+    def get_observation(self):
+        '''
+        Return the state of the game as seen by the current player
+        '''
+        observation = self.state.copy()
+        if self.current_player == 1:
+            observation = self.reverse_view(observation)
+        return observation
+    
+
+    def apply_action(self, action):
 
         '''
         Take in a move representation in index form (0-5 for six possible moves), and apply to board to update:
@@ -80,168 +109,155 @@ class MancalaBoard:
         - Turn number
         
         Set everything up such that updated board representation is ready for next move/evaluation
-        '''
+        ''' 
 
-        legal_moves = self.get_legal_moves()
-
-        if move not in legal_moves:
-            if self.illegal_moves_policy == 'warn':
-                warnings.warn('Illegal or invalid move!')
-                return
-            else:
-                raise ValueError('Illegal or invalid move!')
+        # Useful shorthand to rotate the board if appropriate
+        new_state = self.get_observation()
 
         # MOVE STONES
         # Pick up stones
-        to_distribute = self.board[move]
-        self.board[move] = 0
+        to_distribute = new_state[action]
+        new_state[action] = 0
 
         # Distribute stones
-        position = move
+        position = action
         while to_distribute > 0:
             position = (position + 1) % 14
             if position != 13 or self.place_in_opponent_store:
                 to_distribute -= 1
-                self.board[position] += 1
+                new_state[position] += 1
 
         # If final stone was placed in a position on the players side and where there were 0 stones at move beginning,
         # capture stones in hole on opposite side and optionally also the last placed stone depending on variant
         # Stones move to current player store
-        if position < 6 and self.board[position] == 1: # If there is only one stone in last position, must have been 0 before this turn.
+        if position < 6 and new_state[position] == 1: # If there is only one stone in last position, must have been 0 before this turn.
             opposite_hole = 12 - position
-            self.board[6] += self.board[opposite_hole]
-            self.board[opposite_hole] = 0
+            new_state[6] += new_state[opposite_hole]
+            new_state[opposite_hole] = 0
             if self.capture_last_stone_in_zero_hole:
-                self.board[6] += 1
-                self.board[position] = 0
+                new_state[6] += 1
+                new_state[position] = 0
 
-        # SET UP NEXT BOARD POSITION WHICH IS EVALUATED
-        # Play passes to other player unless:
-        # i) final stone was placed in players own store
-        if position != 6:
-            self.change_player()
-        
-        # ii) The new player (considering (i)) is left with no stones on his side and hence no legal moves
-        if self.board[:6].sum() == 0:
-            # If pass_back variant, then play goes just goes back to the other side
-            if self.no_moves_policy == 'pass_back':
-                self.change_player()
-            # If end_game variant, the opposite player gains all the stones still in play. This will empty the board and trigger the
-            # end_game variant win condition
-            else:
-                self.board[13] += self.board[7:13].sum()
-                self.board[7:13] = 0
-                
-        self.turn_number += 1
-
-
-    # This function changes both the current player value and rotates the board view. This is so that moves from either player can be
-    # evaluated equivalently by network
-    def change_player(self):
-        self.current_player = 3 - self.current_player
-        self.board = np.concatenate([self.board[7:], self.board[:7]])
-
-
-    def get_legal_moves(self, mask_format=False):
-        if mask_format:
-            raise NotImplementedError
+        # Play now passes to other player unless:
+        # i) final stone was placed in players own store, in which case they get another go
+        if position == 6:
+            pass
+        # ii) We are playing the pass-back variant, and the other player has no stones left to play
+        elif self.no_moves_policy == 'pass_back' and new_state[7:-3].sum() == 0:
+            pass
         else:
-            legal_move_indices = np.nonzero(self.board[:6])[0]
-            return legal_move_indices
+            new_state[-2] = 1 - self.current_player
+        
+        # Rotate the board back again if appropriate
+        if self.current_player == 1:
+            new_state = self.reverse_view(new_state)
+
+        # Increment turn number
+        new_state[-1] = self.turn_number + 1
+
+        return MancalaBoard(
+            new_state,
+            self.check_validity,
+            self.starting_stones,
+            self.place_in_opponent_store,
+            self.capture_last_stone_in_zero_hole,
+            self.no_moves_policy
+        )
+
+
+    # This function rotates the board view to see game from other player's perspective
+    @staticmethod
+    def reverse_view(state):
+        return np.concatenate([state[7:-2], state[:7], state[-2:]])
+
+
+    def get_legal_actions(self):
+        observation = self.get_observation()
+        return np.nonzero(observation[:6])[0]
 
 
     def check_score(self):
         
-        # Which position is store for which player depends on current player
-        if self.current_player == 1:
-            player_1_score = self.board[6]
-            player_2_score = self.board[-1]
+        if self.game_over:
+            player_0_score = self.board[:7].sum()
+            player_1_score = self.board[7:].sum()
         else:
+            player_0_score = self.board[6]
             player_1_score = self.board[-1]
-            player_2_score = self.board[6]
 
-        return player_1_score, player_2_score
+        return player_0_score, player_1_score
 
 
-    def game_over(self):
-
+    def is_game_over(self):
         '''
         Check if game is over
 
-        In end_game mode, move() will move last stones into correct store; hence the termination condition for both end_game and pass_back is just that all non-store spaces are 0
+        Differs depending on rule for when one side is empty
         '''
+        observation = self.get_observation()
+        if observation[:6].sum() == 0:
+            if self.no_moves_policy == 'end_game':
+                # No stones on current player side ends game
+                return True
+            elif observation[7:-3].sum() == 0:
+                # No stones on both sides ends game
+                return True
+        return False
 
-        return self.board[:6].sum() == self.board[7:13].sum() == 0
 
-
-    def check_winner(self, p1_victory_value = 1, p2_victory_value = 2, draw_value = None):
+    def check_winner(self):
 
         '''
         Return winner of terminated game.
         '''
 
-        player_1_score, player_2_score = self.check_score()
+        if not self.game_over:
+            raise RuntimeError('Asked to check winner of non-terminated game')
 
-        if player_2_score > player_1_score:
-            return p2_victory_value
-        elif player_1_score > player_2_score:
-            return p1_victory_value
+        player_0_score, player_1_score = self.check_score()
+
+        if player_0_score > player_1_score:
+            return 1
+        elif player_1_score > player_0_score:
+            return -1
         else:
-            return draw_value
-
-
-    def check_valid(self):
-
-        '''
-        Apply a validity check to the board
-        '''
-
-        assert self.board.sum() == self.total_stones, 'Wrong number of stones on board!'
+            return 0
         
 
-    def display(self):
-        current_player_store = self.board[6]
-        opposite_player_store = self.board[-1]
+    def display(self, show_state=False):
+        player_0_store = self.board[6]
+        player_1_store = self.board[-1]
         lower_row = self.board[:6]
         upper_row = np.flip(self.board[7:-1])
-        print('\n\n\n PLAYER', 3 - self.current_player, '  ')
-        print(' ', upper_row, '  ')
-        print(opposite_player_store, '             ', current_player_store)
-        print(' ', lower_row, '  ')
-        print(' PLAYER', self.current_player, '  ')
+        print('\n\n\n')
+        if show_state:
+            print(f'\nState: {self.state}\n')
+        print(' PLAYER 1')
+        print(' ', upper_row)
+        print(player_1_store, '             ', player_0_store)
+        print(' ', lower_row)
+        print(' PLAYER 0')
         print("\nPlayer {}'s turn.".format(self.current_player))
 
 
-    def play_in_console(self, show_features = False):
+    def play_in_console(self, show_state=True):
         player_entry = ''
         while player_entry != 'exit':
-            self.display()
-            if self.game_over():
+            self.display(show_state)
+            if self.game_over:
                 print('\nGame Over!')
-                print(self.check_winner(p1_victory_value = 'Player 1 wins!', p2_victory_value = 'Player 2 wins!', draw_value = 'Draw!'))
+                print('Game value:', self.check_winner())
                 break
             else:
-                if show_features:
-                    print(f'\nFeatures: {self.get_board_state()}\n')
                 player_entry = input("Enter a move 1-6 or 'exit': ")
                 if player_entry in ['1', '2', '3', '4', '5', '6']:
-                    self.move(int(player_entry) - 1)
+                    self.state = self.action(int(player_entry) - 1).state
 
-
-    def __copy__(self):
-        return MancalaBoard(current_player=self.current_player, 
-                            board_start=self.board,
-                            turn_number=self.turn_number,
-                            starting_stones=self.starting_stones,
-                            place_in_opponent_store=self.place_in_opponent_store,
-                            capture_last_stone_in_zero_hole=self.capture_last_stone_in_zero_hole,
-                            no_moves_policy=self.no_moves_policy)
-        
         
 
 if __name__ == '__main__':
 
-    board1 = MancalaBoard(illegal_moves_policy='warn')
+    board1 = MancalaBoard()
 
     board1.play_in_console()
 
