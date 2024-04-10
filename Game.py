@@ -6,12 +6,13 @@ class GameState(ABC):
     '''
     Abstract base class for classical games, exposing functions required for AlphaZero algorithm
 
-    Essentially a state tensor with functions attached
+    Essentially a state with functions attached
     '''
 
-    def __init__(self, state='new_game'):
-        if state == 'new_game':
+    def __init__(self, state=None, check_validity=True):
+        if state == None:
             state = self.new_game_state()
+        self.check_validity = check_validity
         self.state = state
         self.game_over = self.is_game_over()
         if self.game_over:
@@ -20,32 +21,29 @@ class GameState(ABC):
             self.legal_actions = self.get_legal_actions()
     
 
-    @abstractmethod
     @staticmethod
+    @abstractmethod
     def new_game_state(self):
         '''
-        Return the state tensor of a new game
+        Return the state jof a new game
         '''
         pass
 
 
     @property
     def state(self):
-        print("Getting value...")
         return self._state
     
 
     @state.setter
     def state(self, state):
-        print("Setting value...")
-        if self.check_state:
-            self.check_state_validity(state)
         self._state = state
+        if self.check_validity:
+            self.check_state_validity()
 
 
     @abstractmethod
-    @staticmethod
-    def check_state_validity(self, state):
+    def check_state_validity(self):
         pass
 
 
@@ -60,19 +58,20 @@ class GameState(ABC):
     @abstractmethod
     def apply_action(self, action):
         '''
-        Apply an action to a non-terminated GameState and return the resulting child GameState
+        Apply an action to the current state and return the resulting state
         '''
         pass
 
 
     def action(self, action):
         
-        if self.game_over():
-            raise RuntimeError("Cannot execute action '{action}': game already over")
+        if self.game_over:
+            raise RuntimeError(f"Cannot execute action '{action}': game already over")
         if action not in self.get_legal_actions():
-            raise RuntimeError("Cannot execute action '{action}': not legal")
+            raise RuntimeError(f"Cannot execute action '{action}': not legal")
 
         return self.apply_action(action)
+ 
 
     @abstractmethod
     def is_game_over(self):
@@ -90,17 +89,58 @@ class GameState(ABC):
         pass
     
 
+    def display(self):
+        print(f'\nGAME STATE:\n{self.state}\n')
+
+
 
 if __name__ == '__main__':
 
-    class TestGameState(GameState):
+    class CoinFlip(GameState):
+
+        "A stupid game to test the ABC"
+
+        def __init__(self, state=None, check_validity=True):
+            super().__init__(state, check_validity)
+
+
+        def new_game_state(self):
+            return [0, 0]
+        
+        @property
+        def coin_side(self):
+            return self.state[0]
+        
+        @property
+        def turn_no(self):
+            return self.state[1]
+
+        def check_state_validity(self):
+            if self.coin_side not in [0, 1]:
+                raise ValueError(f'Coin side wrong: {self.coin_side}')
+
+        def get_legal_actions(self):
+            return ['flip']
+        
         def apply_action(self, action):
-            pass
+            return [1 - self.coin_side, self.turn_no + 1]
+        
+        def is_game_over(self):
+            return self.turn_no > 10
 
-    tgs = TestGameState(0)
+        def check_winner(self):
+            return 'me'
 
-    print(tgs.state)
-    
-    tgs.state = '1'
-    
-    print(tgs.state)
+
+    cf = CoinFlip()
+
+    for i in range(12):
+
+        if cf.game_over:
+            print('Game over!')
+            break
+
+        cf.display()
+        new_state = cf.action('flip')
+        cf = CoinFlip(new_state)
+        

@@ -23,15 +23,16 @@ class MancalaBoard:
     warnings.simplefilter('always', UserWarning)
 
     def __init__(self,
-                current_player=1, 
-                board_start=None,
-                turn_number=0,
-                starting_stones=3,
-                place_in_opponent_store=False,
-                capture_last_stone_in_zero_hole=True,
-                illegal_moves_policy='raise',
-                no_moves_policy='end_game'):
-        
+        current_player=1, 
+        board_start=None,
+        turn_number=0,
+        starting_stones=3,
+        place_in_opponent_store=False,
+        capture_last_stone_in_zero_hole=True,
+        illegal_moves_policy='raise',
+        no_moves_policy='end_game'
+    ):
+
         self.starting_stones = starting_stones
 
         if board_start is None:
@@ -84,7 +85,7 @@ class MancalaBoard:
         legal_moves = self.get_legal_moves()
 
         if move not in legal_moves:
-            if self.illegal_moves_policy is 'warn':
+            if self.illegal_moves_policy == 'warn':
                 warnings.warn('Illegal or invalid move!')
                 return
             else:
