@@ -1,7 +1,8 @@
 import numpy as np
-import warnings
-from Game import GameState
+from mancalazero.Game import GameState
 
+
+input('THIS IS YET ANOTHER UPDATE STILLLLLLLLLLLLLLL')
 
 class MancalaBoard(GameState):
 
@@ -88,6 +89,7 @@ class MancalaBoard(GameState):
         # Check all elements of state tensor positive
         if not np.all(self.state >= 0):
             raise RuntimeError('Negative value in state tensor')
+        #print('New state validity OK')
 
 
     def get_observation(self):
@@ -140,14 +142,24 @@ class MancalaBoard(GameState):
 
         # Play now passes to other player unless:
         # i) final stone was placed in players own store, in which case they get another go
-        if position == 6:
-            pass
         # ii) We are playing the pass-back variant, and the other player has no stones left to play
-        elif self.no_moves_policy == 'pass_back' and new_state[7:-3].sum() == 0:
-            pass
-        else:
-            new_state[-2] = 1 - self.current_player
+        current_player_has_stones = new_state[:6].sum() != 0
+        other_player_has_stones = new_state[7:-3].sum() != 0
+        ended_in_current_player_store = position == 6
         
+        if self.no_moves_policy == 'end_game':
+            if not ended_in_current_player_store:
+                new_state[-2] = 1 - self.current_player
+        
+        elif self.no_moves_policy == 'pass_back':
+            if not current_player_has_stones:
+                new_state[-2] = 1 - self.current_player
+            else:
+                if other_player_has_stones and not ended_in_current_player_store:
+                    new_state[-2] = 1 - self.current_player
+
+
+
         # Rotate the board back again if appropriate
         if self.current_player == 1:
             new_state = self.reverse_view(new_state)
@@ -195,17 +207,20 @@ class MancalaBoard(GameState):
         Differs depending on rule for when one side is empty
         '''
         observation = self.get_observation()
-        if observation[:6].sum() == 0:
+        current_player_no_stones = observation[:6].sum() == 0
+
+        if current_player_no_stones:
             if self.no_moves_policy == 'end_game':
                 # No stones on current player side ends game
                 return True
-            elif observation[7:-3].sum() == 0:
+            elif self.no_moves_policy == 'pass_back':
+                other_player_no_stones = observation[7:-3].sum() == 0
                 # No stones on both sides ends game
-                return True
+                return other_player_no_stones
         return False
 
 
-    def check_winner(self):
+    def check_outcome(self):
 
         '''
         Return winner of terminated game.

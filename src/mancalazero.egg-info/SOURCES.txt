@@ -1,0 +1,14 @@
+README.md
+pyproject.toml
+src/mancalazero/Agent.py
+src/mancalazero/Game.py
+src/mancalazero/MCTS.py
+src/mancalazero/MancalaNet.py
+src/mancalazero/__init__.py
+src/mancalazero/mancala.py
+src/mancalazero/policy_and_value_network.py
+src/mancalazero/self_play.py
+src/mancalazero.egg-info/PKG-INFO
+src/mancalazero.egg-info/SOURCES.txt
+src/mancalazero.egg-info/dependency_links.txt
+src/mancalazero.egg-info/top_level.txt

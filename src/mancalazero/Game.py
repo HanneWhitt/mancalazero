@@ -109,9 +109,9 @@ class GameState(ABC):
 
 
     @abstractmethod
-    def check_winner(self):
+    def check_outcome(self):
         '''
-        Return winner of terminated game
+        Return outcome of terminated game
         '''
         pass
     
@@ -160,7 +160,7 @@ if __name__ == '__main__':
         def is_game_over(self):
             return self.turn_no > 10
 
-        def check_winner(self):
+        def check_outcome(self):
             return 'me'
 
 

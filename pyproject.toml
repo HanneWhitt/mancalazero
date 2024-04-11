@@ -1,0 +1,26 @@
+[project]
+name = "mancalazero"
+version = "0.0.1"
+authors = [
+  { name="Hannes Whittingham", email="hannes.whittingham@gmail.com" },
+]
+description = "An implementation of AlphaZero for the ancient African game, Mancala!"
+readme = "README.md"
+requires-python = ">=3.11"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+
+[build-system]
+requires = [
+    "setuptools>=61.0",
+    "numpy>=1.24.3",
+    "torch>=2.0.1"
+]
+build-backend = "setuptools.build_meta"
+
+[project.urls]
+Homepage = "https://github.com/HanneWhitt/mancalazero"
+Issues = "https://github.com/HanneWhitt/mancalazero/issues"

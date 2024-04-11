@@ -1,3 +1,16 @@
+Metadata-Version: 2.1
+Name: mancalazero
+Version: 0.0.1
+Summary: An implementation of AlphaZero for the ancient African game, Mancala!
+Author-email: Hannes Whittingham <hannes.whittingham@gmail.com>
+Project-URL: Homepage, https://github.com/HanneWhitt/mancalazero
+Project-URL: Issues, https://github.com/HanneWhitt/mancalazero/issues
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.11
+Description-Content-Type: text/markdown
+
 # mancalazero
 An implementation of AlphaZero for the ancient African game, Mancala!
 
