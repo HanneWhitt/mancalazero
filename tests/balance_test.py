@@ -8,7 +8,7 @@ import pandas as pd
 
 results = {}
 
-n_games = 100
+n_games = 10000
 
 for n_stones in [3, 4]:
     for variant in ['end_game', 'pass_back']:
@@ -49,11 +49,12 @@ for n_stones in [3, 4]:
 
             game_outcomes.append(game_data)
 
-        #game_outcomes = pd.DataFrame(game_outcomes)
-
-        #input(game_outcomes)
+        game_outcomes = pd.DataFrame(game_outcomes)
 
         variant_name = f'{variant}_variant_{n_stones}_stones'
-        results[variant_name] = game_outcomes
 
-    
+        outfile = f'results/balance_tests/{variant_name}.csv'
+
+        game_outcomes.to_csv(outfile)
+
+        results[variant_name] = game_outcomes

@@ -2,8 +2,6 @@ import numpy as np
 from mancalazero.Game import GameState
 
 
-input('THIS IS YET ANOTHER UPDATE STILLLLLLLLLLLLLLL')
-
 class MancalaBoard(GameState):
 
     '''

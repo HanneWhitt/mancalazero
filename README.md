@@ -23,7 +23,7 @@ The implementation is from the ground up, with fully original code and the only 
 ### Notes
 
 ##### Choice of rules variant
-The version I know from childhood ends the game when one player is out of stones and cannot make a legal move, awarding all the stones remaining in play to the other player. This is implemented in the `no_moves_policy='end_game'` variant in `mancala.py`. 
+The version I know from childhood starts with 3 stones in every hole and ends the game when a player is out of stones and cannot make a legal move, awarding all the stones remaining in play to the other player. This is one of the options implemented in `mancala.py` (`starting_stones=3, no_moves_policy='end_game'`). 
 
-However, upon running 10,000 games between random agents, I found this mechanic seems to result in a strong bias for the first player to win. I'd prefer to develop an agent for a more balanced game, 
+<!-- However, upon running 10,000 games between random agents, I found this variant appears to have a strong first mover advantage. I would prefer to develop an agent to play a relatively balanced version of the game, so I experimented with variants  -->
 
