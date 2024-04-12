@@ -8,10 +8,10 @@ import pandas as pd
 
 results = {}
 
-n_games = 10000
+n_games = 100000
 
-for n_stones in [3, 4]:
-    for variant in ['end_game', 'pass_back']:
+for n_stones in [3]:
+    for variant in ['pass_back']:
 
         game_outcomes = []
 
@@ -27,7 +27,7 @@ for n_stones in [3, 4]:
 
             while not mancala_game.game_over:
 
-                #mancala_game.display()
+                mancala_game.display()
 
                 if mancala_game.current_player == 0:
                     action = Agent_0.select_action(mancala_game.state, mancala_game.legal_actions)
@@ -36,6 +36,8 @@ for n_stones in [3, 4]:
                     action = Agent_1.select_action(mancala_game.state, mancala_game.legal_actions)
                     #print('Agent 1 chose action: ', action)
                 mancala_game = mancala_game.action(action)
+
+                input()
 
             player_0_score, player_1_score = mancala_game.check_score()
             outcome = mancala_game.check_outcome()
@@ -51,10 +53,34 @@ for n_stones in [3, 4]:
 
         game_outcomes = pd.DataFrame(game_outcomes)
 
+        win_lose_draw = game_outcomes['outcome'].value_counts().to_dict()
+        p0_wins = win_lose_draw[1]
+        p1_wins = win_lose_draw[-1]
+        draw = win_lose_draw[0]
+
+        p0_score = game_outcomes['player_0_score'].mean()
+        p1_score = game_outcomes['player_1_score'].mean()
+        turns = game_outcomes['turns_played'].mean()
+
+        stats = {
+            'P0 wins': (p0_wins/n_games)*100,
+            'P1 wins': (p1_wins/n_games)*100,
+            'Draw': (draw/n_games)*100,
+            'P0 average score': p0_score,
+            'P1 average score': p1_score,
+            'Average turns played': turns
+        }
+
         variant_name = f'{variant}_variant_{n_stones}_stones'
+        
+        variant_outfile = f'results/balance_tests/{variant_name}.csv'
+        #game_outcomes.to_csv(variant_outfile)
 
-        outfile = f'results/balance_tests/{variant_name}.csv'
+        results[variant_name] = stats
 
-        game_outcomes.to_csv(outfile)
+results = pd.DataFrame(results).T
+outfile = f'results/balance_tests/stats.csv'
 
-        results[variant_name] = game_outcomes
+#results.to_csv(outfile)
+
+print(results)
