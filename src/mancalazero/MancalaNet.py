@@ -5,6 +5,22 @@ import torch.nn.functional as F
 
 class PolicyValueFeedForward(nn.Module):
 
+    '''
+    A neural network to take as input:
+    - mancala board state vector s
+    - mancala board binary legal moves mask (len 6)
+    And output: 
+    - a policy vector p (len 6) 
+    - scalar estimated value v
+
+    Main body is a simple MLP with batch normalisation, effectively produces a board embedding. 
+    
+    Both policy and value head then have a layer or two to themselves to enable some specialisation in the way they use 
+    the shared board embedding. Imitates approach in much bigger AlphaZero CNN
+
+    Note batchnorm applied AFTER activation function in all cases... Not done in original paper but experiments since seem to 
+    support this approach https://github.com/ducha-aiki/caffenet-benchmark/blob/master/batchnorm.md
+    '''
 
     def __init__(self,
         input_length = 16,
@@ -17,43 +33,87 @@ class PolicyValueFeedForward(nn.Module):
         super(PolicyValueFeedForward, self).__init__()
 
         shared_dims = [input_length, *shared_layers]
-        self.shared_layers = [nn.Linear(i, j) for i, j in zip(shared_dims, shared_dims[1:])]
+        self.shared = [(nn.Linear(i, j), nn.BatchNorm1d(j)) for i, j in zip(shared_dims, shared_dims[1:])]
 
         policy_dims = [shared_layers[-1], *policy_head_layers, n_actions]
-        self.policy_layers = [nn.Linear(i, j) for i, j in zip(policy_dims, policy_dims[1:])]
+        self.p_layers = [(nn.Linear(i, j), nn.BatchNorm1d(j)) for i, j in zip(policy_dims, policy_dims[1:])]
 
         value_dims = [shared_layers[-1], *value_head_layers, 1]
-        self.value_layers = [nn.Linear(i, j) for i, j in zip(value_dims, value_dims[1:])]
+        self.v_layers = [(nn.Linear(i, j), nn.BatchNorm1d(j)) for i, j in zip(value_dims, value_dims[1:])]
 
 
-    def forward(self, representation, legal_moves_mask):
+    def masked_softmax(self, input, mask, dim=0):
+
+        """
+        We need to manually implement a version of softmax that ignores zeros in the mask; i.e 
+        it outputs a probability distribution with zeros for illegal moves, and probabilities summing
+        to 1 for all other moves. Exp(0) = 1, so this is not as simple as multiplying input by mask.
+        """
+
+        print('\n input\n', input)
+
+        # Take exponential for all values 
+        exp = torch.exp(input)
+
+        print('\n exp\n',exp)
+    
+        # THEN apply mask
+        masked = exp*mask
+
+        print('\n masked\n', masked)
+
+        # Then apply softmax
+        return masked/masked.sum(dim, keepdim=True)
+
+
+    def forward(self, s, mask):
         
-        for lyr in self.shared_layers:
-            representation = F.relu(lyr(representation))
+        for layer, batchnorm in self.shared:
+            s = layer(s)
+            s = F.relu(s)
+            s = batchnorm(s)
 
-        policy = representation
-        for pol_lyr in self.policy_layers[:-1]:
-            policy = F.relu(pol_lyr(policy))
-        policy = self.policy_layers[-1](policy)
-        # Multiply by legal_moves_mask to set illegal moves to zero probability
-        policy = policy*legal_moves_mask
-        policy = F.softmax(policy)
+        p = s
+        for p_layer, batchnorm in self.p_layers[:-1]:
+            p = p_layer(p)
+            p = F.relu(p)
+            p = batchnorm(p)
+        p = self.p_layers[-1][0](p)
 
-        value = representation
-        for val_lyr in self.value_layers[:-1]:
-            value = F.relu(val_lyr(value))
-        value = F.tanh(self.value_layers[-1](value))
+        # Softmax for valid probability distribution, mask to zero out illegal moves
+        p = self.masked_softmax(p, mask)
 
-        return policy, value
+        v = s
+        for v_layer, batchnorm in self.v_layers[:-1]:
+            v = v_layer(v)
+            v = F.relu(v)
+            v = batchnorm(v)
+        v = self.v_layers[-1][0](v)
+
+        # tanh on value to match outcome in range [-1, 1]
+        v = F.tanh(v)
+
+        return p, v
 
 
 if __name__ == '__main__':
+
+    import torch
 
     mnet = PolicyValueFeedForward()
     # print(mnet.shared_layers)
     # print(mnet.policy_layers)
     # print(mnet.value_layers)
 
-    rep = torch.Tensor([1]*16)
+    rep = torch.Tensor([[1]*16, [1]*16])
 
-    mnet(rep, 1)
+    legal_moves = torch.Tensor([[1, 1, 1, 0, 0, 1], [1, 1, 1, 0, 0, 1]])
+
+
+    policy, value = mnet(rep, legal_moves)
+
+    # print(policy)
+
+    # print(value)
+
+
