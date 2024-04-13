@@ -20,7 +20,6 @@ def agent_v_agent_game(board, agent_1, agent_2):
 
         best_move, MCTS = agent_1.build_tree_and_choose_move()
         
-
         if agent_2:
 
 

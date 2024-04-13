@@ -182,6 +182,7 @@ class MancalaBoard(GameState):
 
 
     def get_legal_actions(self):
+        # Shorthand to view board from current player's perspective
         observation = self.get_observation()
         return np.nonzero(observation[:6])[0]
 
