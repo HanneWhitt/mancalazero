@@ -6,6 +6,8 @@ from mancalazero.visualization import MCTS_visualization, MCTS_expansion_series
 
 class TestMCTSNode(MCTSNode):
 
+    np.random.seed(0)
+
     def prior_function(self, observation, legal_actions):
 
         """
@@ -22,7 +24,6 @@ class TestMCTSNode(MCTSNode):
         uniform_p = 1/n_legal_actions
 
         policy = np.ones(n_legal_actions)*uniform_p
-        np.random.seed(0)
         value = np.random.uniform(low=-1.0, high=1.0)
 
         return policy, value
@@ -30,7 +31,8 @@ class TestMCTSNode(MCTSNode):
 
     def get_node_description(self):
         original = super().get_node_description()
-        new = {'observation': [int(x) for x in self.state.get_observation()]}
+        boardview = self.state.display()
+        new = {'state': boardview}
         return {**new, **original}
 
 
@@ -39,13 +41,26 @@ test_mcts_node = TestMCTSNode(mancala_game_state)
 nodes_edges_list = [test_mcts_node.get_nodes_and_edges()]
 
 
-for i in range(20):
+for i in range(10):
     test_mcts_node.simulation()
     nodes_edges_list.append(test_mcts_node.get_nodes_and_edges())
 
 
-MCTS_expansion_series(nodes_edges_list, savefolder='scratch/expansion_visualisation_test')
-#MCTS_visualization(*nodes_edges_list[-1])
+
+# MCTS_visualization(
+#     *nodes_edges_list[-1],
+#     node_label_keys=['state', 'V'],
+#     savefile='scratch/test_viz.jpeg',
+#     title='Test2',
+#     figsize=(12, 7)
+# )
+MCTS_expansion_series(
+    nodes_edges_list,
+    savefolder='scratch/expansion_visualisation_test',
+    node_label_keys=['state', 'V'],
+    title='Test2',
+    figsize=(12, 7)
+)
 
 
 

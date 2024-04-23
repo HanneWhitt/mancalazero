@@ -240,26 +240,23 @@ class MancalaBoard(GameState):
             return 0
         
 
-    def display(self, show_state=False):
+    def display(self):
         player_0_store = self.board[6]
         player_1_store = self.board[-1]
         lower_row = self.board[:6]
         upper_row = np.flip(self.board[7:-1])
-        print('\n\n\n')
-        if show_state:
-            print(f'\nState: {self.state}\n')
-        print(' PLAYER 1')
-        print(' ', upper_row)
-        print(player_1_store, '             ', player_0_store)
-        print(' ', lower_row)
-        print(' PLAYER 0')
-        print("\nPlayer {}'s turn.".format(self.current_player))
+        display_string = f"""
+         {upper_row}
+        {player_1_store}             {player_0_store}
+         {lower_row}"""
+        print(display_string)
+        return display_string
 
 
-    def play_in_console(self, show_state=True):
+    def play_in_console(self):
         player_entry = ''
         while player_entry != 'exit':
-            self.display(show_state)
+            self.display()
             if self.game_over:
                 print('\nGame Over!')
                 print('Game value:', self.check_winner())
@@ -268,3 +265,5 @@ class MancalaBoard(GameState):
                 player_entry = input("Enter a move 1-6 or 'exit': ")
                 if player_entry in ['1', '2', '3', '4', '5', '6']:
                     self.state = self.action(int(player_entry) - 1).state
+
+    

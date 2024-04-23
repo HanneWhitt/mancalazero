@@ -17,19 +17,40 @@ except ModuleNotFoundError:
 def MCTS_visualization(
     nodes,
     edges,
+    node_label_keys='all',
+    edge_label_keys='all',
     pos=None,
     title=None,
     xlim=None,
     ylim=None,
+    figsize=(10, 6),
+    font_size=8,
     savefile=None
 ):
 
-    G = draw_graph(nodes, edges)
+    G = create_graph(edges)
+
+    node_labels = create_labels(nodes, node_label_keys)
+    edge_labels = create_labels(edges, edge_label_keys)
 
     if pos == None:
         pos = get_node_positions(G)
 
-    nx.draw_networkx(G, pos = pos)
+    plt.figure(figsize=figsize)
+
+    nx.draw(
+        G,
+        pos = pos,
+        labels=node_labels,
+        font_size=8
+    )
+    nx.draw_networkx_edge_labels(
+        G,
+        pos=pos,
+        edge_labels=edge_labels,
+        font_size=font_size,
+        rotate=False
+    )
 
     plt.title(title)
     if xlim:
@@ -48,10 +69,14 @@ def MCTS_visualization(
     plt.close()
 
     properties = {
+        'node_label_keys': node_label_keys,
+        'edge_label_keys': edge_label_keys,
         'pos': pos,
         'title': title,
         'xlim': xlim,
-        'ylim': ylim
+        'ylim': ylim,
+        'figsize': figsize,
+        'font_size': font_size
     }
 
     return properties
@@ -59,11 +84,12 @@ def MCTS_visualization(
 
 def MCTS_expansion_series(
     nodes_edges_series_list,
-    savefolder=None
+    savefolder=None,
+    **properties
 ):
     
     # Get graph properties from last entry
-    properties = MCTS_visualization(*nodes_edges_series_list[-1])
+    properties = MCTS_visualization(*nodes_edges_series_list[-1], **properties)
 
     # Create savefolder
     if not os.path.isdir(savefolder):
@@ -72,24 +98,44 @@ def MCTS_expansion_series(
     # Draw the series
     for i, (nodes, edges) in enumerate(nodes_edges_series_list):
         title = f'Simulation_{i}'
+        print(title)
         properties['title'] = title
         savefile = os.path.join(savefolder, title)
         MCTS_visualization(nodes, edges, **properties, savefile=savefile)
 
 
-def draw_graph(
-    nodes,
+def create_graph(
     edges
 ):
     G = nx.DiGraph()
-    
-    for node, node_description in nodes.items():
-        G.add_node(node)
-    
-    for edge in edges:
-        G.add_edge(*edge)
-
+    G.add_edges_from(edges)
     return G
+
+
+def create_label(
+    description,
+    keys='all',
+    rounding=3
+):
+    if keys == 'all':
+        keys = description.keys()
+    label = []
+    for k in keys:
+        v = description[k]
+        if isinstance(v, float):
+            v = round(v, rounding)
+        line = f'{k}: {v}'
+        label.append(line)
+    label = '\n'.join(label)
+    return label
+
+
+def create_labels(
+    id_desc_dict,
+    keys='all',
+    rounding=3
+):
+    return {id: create_label(desc, keys, rounding) for id, desc in id_desc_dict.items()}
 
 
 def get_node_positions(G):

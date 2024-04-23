@@ -82,30 +82,6 @@ class MCTSNode(ABC):
         """
 
         pass
-    
-
-    def get_node_id(self):
-        
-        """
-        Returns GLOBAL_NODE_IDX by default; override if desired
-        """
-
-        return self._id
-    
-
-    def get_node_description(self):
-        
-        """
-        Returns observation, P, V, N, W and Q by default; override if desired
-        """
-
-        return {
-            'P': self.p.tolist(),
-            'V': self.v,
-            'N': self.N.tolist(),
-            'W': self.W.tolist(),
-            'Q': self.Q.tolist()
-        }
 
 
     @classmethod
@@ -204,6 +180,48 @@ class MCTSNode(ABC):
             print(f'{k}: {v}')        
 
 
+    def get_node_id(self):
+        
+        """
+        Returns GLOBAL_NODE_IDX by default; override if desired
+        """
+
+        return self._id
+    
+
+    def get_node_description(self):
+        
+        """
+        Returns observation, P, V, N, W and Q by default; override if desired
+        """
+
+        return {
+            'P': self.p.tolist(),
+            'V': self.v,
+            'N': self.N.tolist(),
+            'W': self.W.tolist(),
+            'Q': self.Q.tolist()
+        }
+
+
+    def get_edge_description(self, child_idx):
+
+        """
+        Returns associated action, P element, N element, W element, Q element by default; override if desired
+        """
+
+        if self.children[child_idx] is None:
+            raise ValueError('Cannot return edge description to non-existent node')
+
+        return {
+            'action': self.state.legal_actions[child_idx],
+            'P': self.p[child_idx],
+            'N': self.N[child_idx],
+            'W': self.W[child_idx],
+            'Q': self.Q[child_idx]
+        }
+
+
     def get_nested_dict(self, to_depth=None):
 
         """
@@ -240,14 +258,14 @@ class MCTSNode(ABC):
         id = self.get_node_id()
 
         nodes = {id: self.get_node_description()}
-        edges = []
+        edges = {}
 
-        for c in self.children:
+        for i, c in enumerate(self.children):
             if c is not None:
-                edges.append((id, c.get_node_id()))
+                edges[(id, c.get_node_id())] = self.get_edge_description(i)
                 c_nodes, c_edges = c.get_nodes_and_edges(to_depth)
                 nodes = {**nodes, **c_nodes}
-                edges = edges + c_edges
+                edges = {**edges, **c_edges}
 
         return nodes, edges
 
