@@ -9,12 +9,19 @@ class GameState(ABC):
     Essentially a state with functions attached
     '''
 
-    def __init__(self, state=None, check_validity=True):
+    def __init__(self, state=None, move_history=True, check_validity=True):
         if state is None:
             state = self.new_game_state()
         self.check_validity = check_validity
         self.state = state
-    
+        if move_history:
+            if isinstance(move_history, list):
+                self.move_history = move_history.copy()
+            else:
+                self.move_history = []
+        else:
+            self.move_history = False
+
 
     @staticmethod
     @abstractmethod
@@ -79,11 +86,13 @@ class GameState(ABC):
     @abstractmethod
     def apply_action(self, action):
         '''
-        Apply an action to the current state and return the resulting state
+        Implement a function to apply an action to the current state and return the resulting state
+
+        Must return an instance of the child class
         '''
         pass
 
-
+    
     def action(self, action):
 
         '''
@@ -95,7 +104,10 @@ class GameState(ABC):
         if self.game_over:
             raise RuntimeError(f"Cannot execute action '{action}': game already over")
         if action not in self.legal_actions:
-            raise RuntimeError(f"Cannot execute action '{action}': not legal")
+            raise RuntimeError(f"Cannot execute action '{action}': not a legal action")
+
+        if isinstance(self.move_history, list):
+            self.move_history.append(action)
 
         return self.apply_action(action)
  
@@ -123,56 +135,3 @@ class GameState(ABC):
         '''
 
         print(f'\nGAME STATE:\n{self.state}\n')
-
-
-
-if __name__ == '__main__':
-
-    class CoinFlip(GameState):
-
-        "A stupid game to test the ABC. Flip a coin 10 times, then game over"
-
-        def __init__(self, state=None, check_validity=True):
-            super().__init__(state, check_validity)
-
-
-        def new_game_state(self):
-            return [0, 0]
-        
-        @property
-        def coin_side(self):
-            return self.state[0]
-        
-        @property
-        def turn_no(self):
-            return self.state[1]
-
-        def check_state_validity(self):
-            if self.coin_side not in [0, 1]:
-                raise ValueError(f'Coin side wrong: {self.coin_side}')
-
-        def get_legal_actions(self):
-            return ['flip']
-        
-        def apply_action(self, action):
-            return [1 - self.coin_side, self.turn_no + 1]
-        
-        def is_game_over(self):
-            return self.turn_no > 10
-
-        def check_outcome(self):
-            return 'me'
-
-
-    cf = CoinFlip()
-
-    for i in range(12):
-
-        if cf.game_over:
-            print('Game over!')
-            break
-
-        cf.display()
-        new_state = cf.action('flip')
-        cf = CoinFlip(new_state)
-        

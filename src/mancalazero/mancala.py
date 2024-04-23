@@ -23,6 +23,7 @@ class MancalaBoard(GameState):
     def __init__(
         self,
         state=None,
+        move_history=True,
         check_validity=True,
         starting_stones=3,
         place_in_opponent_store=False,
@@ -39,7 +40,7 @@ class MancalaBoard(GameState):
         self.no_moves_policy = no_moves_policy
 
         # Initialise parent
-        super().__init__(state, check_validity)
+        super().__init__(state, move_history, check_validity)
 
 
 
@@ -167,6 +168,7 @@ class MancalaBoard(GameState):
 
         return MancalaBoard(
             new_state,
+            self.move_history,
             self.check_validity,
             self.starting_stones,
             self.place_in_opponent_store,
@@ -266,13 +268,3 @@ class MancalaBoard(GameState):
                 player_entry = input("Enter a move 1-6 or 'exit': ")
                 if player_entry in ['1', '2', '3', '4', '5', '6']:
                     self.state = self.action(int(player_entry) - 1).state
-
-        
-
-if __name__ == '__main__':
-
-    board1 = MancalaBoard()
-
-    board1.play_in_console()
-
-

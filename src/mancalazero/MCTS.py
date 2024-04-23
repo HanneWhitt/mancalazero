@@ -1,11 +1,11 @@
 import numpy as np
-from time import time
+from abc import ABC, abstractmethod
 
 
-class MCTSNode():
+class MCTSNode(ABC):
 
     '''
-    Base class for a Monte Carlo Tree Search for an adversarial two-player game
+    Implementation of Monte Carlo Tree Search version used in AlphaZero (no rollout)
     
     state arg must be an object inheriting from the GameState base class, with methods:
     1) .legal_actions -> an np.array of indexes of all legal moves
@@ -19,15 +19,24 @@ class MCTSNode():
 
     self.prior_function must be able to take in an object of the same type as board_state and return:
     1) a prior probability over ALL moves (not just legal ones) p and a value between 1 and -1
-
-    Make abstract base class later?
     '''
 
-    def __init__(self, state, depth=0, noise_fraction=0, dirichlet_alpha=3, distribution_validity_epsilon=1e-6):
+    _id = 0
+
+    def __init__(self,
+        state,
+        noise_fraction=0,
+        dirichlet_alpha=3,
+        distribution_validity_epsilon=1e-6
+    ):
 
         '''
         Create a new node; 'expansion' step of algorithm
         '''
+
+        # Unique id for this node
+        self._id = MCTSNode._id
+        MCTSNode._id += 1
 
         # The state of the game at this node
         self.state = state
@@ -35,12 +44,9 @@ class MCTSNode():
         # Number of legal actions from this state
         self.n_legal_actions = len(self.state.legal_actions)
 
-        # Keep track of tree depth at this node
-        self.depth = depth
-
         # self.P contains priors p from nnet for all legal moves in self.legal_moves
         # self.V contains nnet-estimated value of current state for current player
-        self.p, self.v_init = self.prior_function(self.state.get_observation(), self.state.legal_actions)
+        self.p, self.v = self.prior_function(self.state.get_observation(), self.state.legal_actions)
 
         # TODO: In self-play, at the root node, we add noise for exploration
         # if noise_fraction != 0:
@@ -62,41 +68,61 @@ class MCTSNode():
 
         # A list to contain child nodes which are themselves instances of this class, each initialised as None
         self.children = [None]*self.n_legal_actions
-    
 
+
+    @abstractmethod
     def prior_function(self, observation, legal_actions):
 
-        """A dumb prior function for testing.
-
-        Returns:
-        
-        (i) a policy which is a uniform probability distribution across all the legal moves
-        (ii) A value of 0, which reflects an estimate of 50% win probability
+        """
+        Implement a function that returns:
+         
+        (i) a policy vector with the same length as the number of legal actions
+        (ii) a value between -1 and 1
         
         """
 
-        n_legal_actions = len(legal_actions)
-        uniform_p = 1/n_legal_actions
-        policy = np.ones(n_legal_actions)*uniform_p
-        value = 0
-        return policy, value
-
-
-    def rollout(self, lmda):
-
-        '''
-        Execute a random rollout from this state to improve our estimate of the state value
-        '''
-
-        z = np.random.choice([-1, 1])
-
-        print(f'\n\nROLLOUT OUTCOME: {z} \n\n')
-        input()
-                      
-        self.v_final = (1 - lmda)*self.v_init + lmda*z
-
-        return self.v_final
+        pass
     
+
+    def get_node_id(self):
+        
+        """
+        Returns GLOBAL_NODE_IDX by default; override if desired
+        """
+
+        return self._id
+    
+
+    def get_node_description(self):
+        
+        """
+        Returns observation, P, V, N, W and Q by default; override if desired
+        """
+
+        return {
+            'P': self.p.tolist(),
+            'V': self.v,
+            'N': self.N.tolist(),
+            'W': self.W.tolist(),
+            'Q': self.Q.tolist()
+        }
+
+
+    @classmethod
+    def new_node(
+        cls,
+        state,
+        noise_fraction=0,
+        dirichlet_alpha=3,
+        distribution_validity_epsilon=1e-6
+    ):
+        return cls(
+            state,
+            noise_fraction=noise_fraction,
+            dirichlet_alpha=dirichlet_alpha,
+            distribution_validity_epsilon=distribution_validity_epsilon
+        )
+
 
     def selection(self):
 
@@ -107,22 +133,16 @@ class MCTSNode():
 
         action_scores = self.Q + u
 
-        print('Action scores:', action_scores)
-        input()
-
         return action_scores.argmax()
     
 
-    def backprop(self, idx, v_final):
+    def backprop(self, idx, v):
         self.N[idx] += 1
-        self.W[idx] += v_final
+        self.W[idx] += v
         self.Q[idx] = self.W[idx]/self.N[idx]
 
 
-    def simulation(self, lmda):
-
-        self.display()
-        input()
+    def simulation(self):
 
         # Select next node from children of current
         idx = self.selection()
@@ -131,44 +151,46 @@ class MCTSNode():
         # If node already present, just continue tree traversal
         if child is not None:
 
-            action = self.state.legal_actions[idx]
-            print('\nNode already present for action', action)
-            input()
+            v = child.simulation()
 
-            v_final = child.simulation(lmda)
-
-
-        # If new leaf node, apply expansion and rollout
+        # If new leaf node, apply expansion. No rollout necessary
         else:
 
             # Expansion: apply move 
             action = self.state.legal_actions[idx]
             new_game_state = self.state.action(action)
 
-            print('\nNo child node for action', action)
-            print('Creating new one')
-            input()
-
             # Expansion: create new child node
-            new_child = MCTSNode(
+            new_child = self.new_node(
                 new_game_state,
-                depth = self.depth + 1,
                 noise_fraction=0,
                 dirichlet_alpha=3,
                 distribution_validity_epsilon=1e-6
             )
 
-            # Rollout
-            v_final = new_child.rollout(lmda)
-
             self.children[idx] = new_child
 
+            v = new_child.v
+
         # Apply backprop at this node
-        self.backprop(idx, v_final)
+        self.backprop(idx, v)
 
         # Pass down value for backprop in parent node
-        return v_final
+        return v
 
+
+    def search_probabilities(self, temperature=1):
+
+        """
+        Return the improved policy after MCTS search, modulated by temp parameter
+        """
+
+        pi = self.N**(1/temperature)
+
+        # standardise
+        pi = pi/pi.sum()
+
+        return pi
 
 
     def display(self):
@@ -179,7 +201,55 @@ class MCTSNode():
 
         self.state.display()
         for k, v in vars(self).items():
-            print(f'{k}: {v}')
+            print(f'{k}: {v}')        
+
+
+    def get_nested_dict(self, to_depth=None):
+
+        """
+        Compile a nested dict representation of the (sub)tree starting at this node
+        """
+
+        if to_depth is not None:
+            if to_depth < 0:
+                return None
+            to_depth -= 1
+
+        children = [c if c is None else c.get_tree_description(to_depth) for c in self.children]
+
+        tree_description = {
+            'id': self.get_node_id(),
+            'description': self.get_node_description(),
+            'children': children
+        }
+
+        return tree_description
+
+
+    def get_nodes_and_edges(self, to_depth=None):
+
+        """
+        Compile a list of nodes and edges of the (sub)tree starting at this node
+        """
+
+        if to_depth is not None:
+            if to_depth < 0:
+                return {}, []
+            to_depth -= 1
+
+        id = self.get_node_id()
+
+        nodes = {id: self.get_node_description()}
+        edges = []
+
+        for c in self.children:
+            if c is not None:
+                edges.append((id, c.get_node_id()))
+                c_nodes, c_edges = c.get_nodes_and_edges(to_depth)
+                nodes = {**nodes, **c_nodes}
+                edges = edges + c_edges
+
+        return nodes, edges
 
 
     # def update(self):
