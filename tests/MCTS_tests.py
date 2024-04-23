@@ -58,8 +58,7 @@ MCTS_expansion_series(
     nodes_edges_list,
     savefolder='scratch/expansion_visualisation_test',
     node_label_keys=['state', 'V'],
-    title='Test2',
-    figsize=(12, 7)
+    figsize=(12, 8)
 )
 
 

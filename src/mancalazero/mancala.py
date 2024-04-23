@@ -246,9 +246,9 @@ class MancalaBoard(GameState):
         lower_row = self.board[:6]
         upper_row = np.flip(self.board[7:-1])
         display_string = f"""
-         {upper_row}
-        {player_1_store}             {player_0_store}
-         {lower_row}"""
+{upper_row}
+{player_1_store}             {player_0_store}
+{lower_row}"""
         print(display_string)
         return display_string
 

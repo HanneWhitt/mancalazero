@@ -192,15 +192,11 @@ class MCTSNode(ABC):
     def get_node_description(self):
         
         """
-        Returns observation, P, V, N, W and Q by default; override if desired
+        Just returns v by default. Override if desired
         """
 
         return {
-            'P': self.p.tolist(),
             'V': self.v,
-            'N': self.N.tolist(),
-            'W': self.W.tolist(),
-            'Q': self.Q.tolist()
         }
 
 
@@ -346,14 +342,6 @@ class MCTSNode(ABC):
     # def get_policy(self, temperature):
 
     #     return self.N**(1/temperature) # raise to power elementwise
-
-
-    # @abstractmethod
-    # def prior_function(self, state_representation):
-
-    #     '''take in board, output vector p and scalar v'''
-
-    #     pass
 
 
     # def C_puct(self, N_parent):

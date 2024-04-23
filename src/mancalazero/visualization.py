@@ -23,12 +23,13 @@ def MCTS_visualization(
     title=None,
     xlim=None,
     ylim=None,
-    figsize=(10, 6),
+    figsize=(12, 7),
     font_size=8,
-    savefile=None
+    node_size=4000,
+    savefile=None,
 ):
 
-    G = create_graph(edges)
+    G = create_graph(nodes, edges)
 
     node_labels = create_labels(nodes, node_label_keys)
     edge_labels = create_labels(edges, edge_label_keys)
@@ -41,8 +42,13 @@ def MCTS_visualization(
     nx.draw(
         G,
         pos = pos,
+        node_size=node_size
+    )
+    nx.draw_networkx_labels(
+        G,
+        pos=pos,
         labels=node_labels,
-        font_size=8
+        font_size=font_size    
     )
     nx.draw_networkx_edge_labels(
         G,
@@ -76,7 +82,8 @@ def MCTS_visualization(
         'xlim': xlim,
         'ylim': ylim,
         'figsize': figsize,
-        'font_size': font_size
+        'font_size': font_size,
+        'node_size': node_size
     }
 
     return properties
@@ -105,9 +112,11 @@ def MCTS_expansion_series(
 
 
 def create_graph(
+    nodes,
     edges
 ):
     G = nx.DiGraph()
+    G.add_nodes_from(nodes)
     G.add_edges_from(edges)
     return G
 
