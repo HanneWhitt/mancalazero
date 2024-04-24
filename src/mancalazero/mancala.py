@@ -249,7 +249,6 @@ class MancalaBoard(GameState):
 {upper_row}
 {player_1_store}             {player_0_store}
 {lower_row}"""
-        print(display_string)
         return display_string
 
 

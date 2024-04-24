@@ -133,6 +133,8 @@ def create_label(
         v = description[k]
         if isinstance(v, float):
             v = round(v, rounding)
+        if isinstance(v, list):
+            v = [round(x, rounding) for x in v if isinstance(x, float)]
         line = f'{k}: {v}'
         label.append(line)
     label = '\n'.join(label)

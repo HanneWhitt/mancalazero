@@ -25,7 +25,7 @@ class MCTSNode(ABC):
 
     def __init__(self,
         state,
-        c_init=1.25,
+        c_init=3,
         c_base=19652,
         noise_fraction=0,
         dirichlet_alpha=3,
@@ -46,28 +46,14 @@ class MCTSNode(ABC):
         # Number of legal actions from this state
         self.n_legal_actions = len(self.state.legal_actions)
 
-        # Set hyperparameters
-
         # c_init and c_base are used to calculate c_puct, a multiplying factor 
         # on the confidence bound which acts to modulate exploration rate.
         # c_puct slowly increases as number of visits to parent node rises. 
         self.c_init=c_init
         self.c_base=c_base
-        self.noise_fraction=noise_fraction
-        self.dirichlet_alpha=dirichlet_alpha
 
-        # self.P contains priors p from nnet for all legal moves in self.legal_moves
-        # self.V contains nnet-estimated value of current state for current player
-        self.p, self.v = self.prior_function(self.state.get_observation(), self.state.legal_actions)
-
-        # TODO: In self-play, at the root node, we add noise for exploration
-        # if noise_fraction != 0:
-        #     noise = dirichlet_noise(dirichlet_alpha, self.n_legal_moves)
-        #     self.P = (1 - noise_fraction)*self.P + noise_fraction*noise
-
-        # Check that self.P is a valid probability distribution
+        # Used to check validity of probability distributions
         self.distribution_validity_epsilon = distribution_validity_epsilon
-        assert np.abs(self.p.sum() - 1.0) < distribution_validity_epsilon, 'self.P is invalid probability distribution: sums to ' + str(self.P.sum())
 
         # Number of node visits for each child action
         self.N = np.zeros(self.n_legal_actions)
@@ -80,6 +66,19 @@ class MCTSNode(ABC):
 
         # A list to contain child nodes which are themselves instances of this class, each initialised as None
         self.children = [None]*self.n_legal_actions
+
+        # p contains prior across legal moves in self.legal_moves
+        # v contains nnet-estimated value of current state for current player
+        self.p, self.v = self.prior_function(self.state.get_observation(), self.state.legal_actions)
+        self.dirichlet_added = False
+
+        # In self-play, at the root node, we add noise for exploration
+        if noise_fraction != 0:
+            self.add_dirichlet_noise(noise_fraction, dirichlet_alpha)
+
+        # Optionally check that self.p is a valid probability distribution
+        if distribution_validity_epsilon:
+            self.check_policy_valid()
 
 
     @abstractmethod
@@ -94,6 +93,21 @@ class MCTSNode(ABC):
         """
 
         pass
+    
+
+    def add_dirichlet_noise(self, noise_fraction, alpha):
+        if self.dirichlet_added:
+            raise RuntimeError('Dirichlet noise already added!')
+        noise = np.random.dirichlet([alpha]*self.n_legal_actions)
+        self.p = (1 - noise_fraction)*self.p + noise_fraction*noise
+        self.dirichlet_added = True
+        return self.p
+
+
+    def check_policy_valid(self):
+        # Check that self.p is a valid probability distribution
+        if np.abs(self.p.sum() - 1.0) > self.distribution_validity_epsilon:
+            raise RuntimeError('p is invalid probability distribution: sums to ' + str(self.p.sum()))
 
 
     @classmethod
@@ -164,7 +178,7 @@ class MCTSNode(ABC):
 
     def expansion(self, child_idx):
         
-        # Expansion: apply move 
+        # Apply move 
         action = self.state.legal_actions[child_idx]
         new_game_state = self.state.action(action)
 
@@ -224,6 +238,16 @@ class MCTSNode(ABC):
         return pi
 
 
+    def search(self, n_sims=800, temperature=1):
+
+        """Run repeated simulations and return search probabilities"""
+
+        for sim in range(n_sims):
+            self.simulation()
+
+        return self.search_probabilities(temperature)
+
+
     def display(self):
 
         """
@@ -252,6 +276,10 @@ class MCTSNode(ABC):
 
         return {
             'V': self.v,
+            'P': self.p.tolist(),
+            'N': self.N.tolist(),
+            'W': self.W.tolist(),
+            'Q': self.Q.tolist()
         }
 
 
@@ -321,119 +349,5 @@ class MCTSNode(ABC):
         return nodes, edges
 
 
-    # def update(self):
 
-    #     '''
-    #     Execute a single update of the tree
-    #     '''
-
-    #     # Number of visits to THIS node is sum of visits to all child nodes
-    #     N_parent = np.sum(self.N)
-
-    #     # A factor to modulate exploration rate
-    #     C_puct = self.C_puct(N_parent)
-
-    #     # Upper confidence bound for each child action
-    #     self.U = C_puct * self.P * np.sqrt(N_parent) / (1 + self.N) # elementwise division
-    #     self.upper_bound = self.Q + self.U 
-
-    #     # Choose action based on upper confidence bound
-    #     chosen_child_index = np.idxmax(self.upper_bound)
-
-    #     # If the chosen child is a leaf node, create a new node there 
-    #     if self.children[chosen_child_index] is None:
-
-    #         # Get the move that this child corresponds to
-    #         chosen_move_id = self.legal_moves[chosen_child_index]
-
-    #         # Make a copy of the state and apply the chosen move to the copy
-    #         new_state = self.state.__copy__().move(chosen_move_id)
-
-    #         # If the new state is a terminated game:
-    #         if new_state.game_over():
-                
-    #             # Who won? Get the player number/label
-    #             winner = new_state.check_winner()
-                
-    #             # Value is 1 if the current player has won, 0 for draw, -1 for loss
-    #             value_to_current_node = 1 if (winner == self.state.current_player) else (0 if winner is None else -1)
-
-    #             # There is no need to create a node for the terminated game. The visit count for this outcome and it's value are stored in the current node.
-
-    #         # If there are still moves to play from the leaf node:
-    #         else:
-    #             # Expand the leaf node by creating a new instance of this class for the chosen move.
-    #             # Child nodes created in this way will never have noise, so leave noise_fraction at default 0
-    #             self.children[chosen_child_index] = MCTS(new_state, distribution_validity_epsilon=self.distribution_validity_epsilon)
-
-    #             # To see what the value of this new state is to the current node, first see who the player is in the new state.
-    #             same_player = new_state.current_player == self.state.current_player
-
-    #             # If it's the other player, the value needs a sign change: this implementation always evaluates each position from the perspective of the next player to play. 
-    #             # A good value for the other player is a bad value for the current player. 
-    #             value_to_current_node = (1 if same_player else -1)*self.children[chosen_child_index].V
-        
-    #     # If it's not a leaf node - i.e it's already expanded - choose it and run this function within it to continue the simulation
-    #     else:
-    #         value_to_child_node = self.children[chosen_child_index].update()
-
-    #         # Again if the chosen child node has a different current_player, we must reverse the value
-    #         same_player = self.children[chosen_child_index].state.current_player == self.state.current_player
-    #         value_to_current_node = (1 if same_player else -1)*value_to_child_node
-
-    #     # Update visit count for chosen child
-    #     self.N[chosen_child_index] += 1
-
-    #     # Update total value for chosen child 
-    #     self.W[chosen_child_index] += value_to_current_node        
-
-    #     # Update action value for this action using new value information. 
-    #     # Action value is just mean of returned values - so could use iterative average update... but this is simpler
-    #     self.Q[chosen_child_index] = self.W[chosen_child_index]/self.N[chosen_child_index]
-
-    #     return value_to_current_node
-
-
-    # def get_policy(self, temperature):
-
-    #     return self.N**(1/temperature) # raise to power elementwise
-
-
-
-
-
-    # def build_tree_and_choose_move(self, time_limit=None, sims_limit=None):
-
-    #     '''
-    #     Repeatedly run simulations to update the MCTS tree. Termination based on time expired OR number of simulations. 
-
-    #     At the end, return the move with the best average action value and its associated MCTS tree - this can be used to save some time
-    #     during self play (already partially-explored tree!)
-    #     '''
-
-    #     assert time_limit or sims_limit, 'Must use at least one of time_limit, sims_limit'
-
-    #     if not time_limit:
-    #         time_limit = np.inf
-    #     if not sims_limit:
-    #         sims_limit = np.inf
-
-    #     sim_count = 0
-    #     start_time = time()
-
-    #     while time() - start < time_limit and sim_count < sims_limit:
-    #         self.update()
-    #         sim_count += 1
-
-    #     best_child = np.idxmax(self.N)
-    #     best_move = self.legal_moves[best_child]
-
-    #     return best_move, self.children[best_child]
-
-
-
-def dirichlet_noise(alpha, n_legal_moves):
-    positive_concentration_params = [alpha]*n_legal_moves
-    noise = np.random.dirichlet(positive_concentration_params)
-    return noise
 
