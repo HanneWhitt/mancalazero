@@ -32,8 +32,22 @@ class TestMCTSNode(MCTSNode):
     def get_node_description(self):
         original = super().get_node_description()
         boardview = self.state.display()
-        new = {'state': boardview}
+        N_parent = self.N.sum() + 1
+        new = {
+            'state': boardview,
+            'N_parent': N_parent,
+            'C_puct': self.C_puct(N_parent)
+        }
         return {**new, **original}
+    
+
+    def get_edge_description(self, child_idx):
+        original = super().get_edge_description(child_idx)
+        new = {
+            'U': self.U()[child_idx],
+            'score': self.action_scores()[child_idx]
+        }
+        return {**original, **new}
 
 
 mancala_game_state = MancalaBoard(starting_stones=4)
@@ -56,9 +70,10 @@ for i in range(10):
 # )
 MCTS_expansion_series(
     nodes_edges_list,
-    savefolder='scratch/expansion_visualisation_test',
-    node_label_keys=['state', 'V'],
-    figsize=(12, 8)
+    savefolder='scratch/examining_U_etc',
+    node_label_keys=['state', 'V', 'N_parent', 'C_puct'],
+    figsize=(12, 9),
+    node_size=6500,
 )
 
 

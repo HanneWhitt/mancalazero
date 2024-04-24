@@ -23,9 +23,9 @@ def MCTS_visualization(
     title=None,
     xlim=None,
     ylim=None,
-    figsize=(12, 7),
+    figsize=(12, 8),
     font_size=8,
-    node_size=4000,
+    node_size=5000,
     savefile=None,
 ):
 

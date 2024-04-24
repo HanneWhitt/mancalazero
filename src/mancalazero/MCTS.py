@@ -25,6 +25,8 @@ class MCTSNode(ABC):
 
     def __init__(self,
         state,
+        c_init=1.25,
+        c_base=19652,
         noise_fraction=0,
         dirichlet_alpha=3,
         distribution_validity_epsilon=1e-6
@@ -43,6 +45,16 @@ class MCTSNode(ABC):
 
         # Number of legal actions from this state
         self.n_legal_actions = len(self.state.legal_actions)
+
+        # Set hyperparameters
+
+        # c_init and c_base are used to calculate c_puct, a multiplying factor 
+        # on the confidence bound which acts to modulate exploration rate.
+        # c_puct slowly increases as number of visits to parent node rises. 
+        self.c_init=c_init
+        self.c_base=c_base
+        self.noise_fraction=noise_fraction
+        self.dirichlet_alpha=dirichlet_alpha
 
         # self.P contains priors p from nnet for all legal moves in self.legal_moves
         # self.V contains nnet-estimated value of current state for current player
@@ -88,29 +100,88 @@ class MCTSNode(ABC):
     def new_node(
         cls,
         state,
-        noise_fraction=0,
-        dirichlet_alpha=3,
-        distribution_validity_epsilon=1e-6
+        c_init,
+        c_base,
+        noise_fraction,
+        dirichlet_alpha,
+        distribution_validity_epsilon
     ):
         return cls(
-            state,
+            state=state,
+            c_init=c_init,
+            c_base=c_base,
             noise_fraction=noise_fraction,
             dirichlet_alpha=dirichlet_alpha,
             distribution_validity_epsilon=distribution_validity_epsilon
         )
 
 
+    def U(self):
+
+        '''
+        A term added to the action value to encourage exploration
+
+        Larger - more exploration
+        '''
+        
+        N_parent = self.N.sum() + 1
+
+        C = self.C_puct(N_parent)
+
+        return C*self.p*np.sqrt(N_parent)/(1 + self.N)
+
+
+    def C_puct(self, N_parent):
+
+        '''
+        A multiplying factor on the confidence bound, which acts to modulate exploration rate.
+        
+        Slowly increases as number of visits to parent node rises. 
+        '''
+
+        return np.log((1 + N_parent + self.c_base)/self.c_base) + self.c_init
+
+
+    def action_scores(self):
+
+        '''
+        Combine an average action value with a bonus encouraging exploration in line with prior policy
+        '''
+
+        return self.Q + self.U()
+
+
     def selection(self):
 
-        #TODO: what is k value?
-        k = 1
+        '''
+        Select daughter node for this simulation
+        '''
 
-        u = k*self.p/(1 + self.N)
+        child_idx = self.action_scores().argmax()
 
-        action_scores = self.Q + u
-
-        return action_scores.argmax()
+        return child_idx
     
+
+    def expansion(self, child_idx):
+        
+        # Expansion: apply move 
+        action = self.state.legal_actions[child_idx]
+        new_game_state = self.state.action(action)
+
+        # Create new child node; set noise_fraction to zero - only apply dirichlet noise at root
+        new_child = self.new_node(
+            new_game_state,
+            c_init=self.c_init,
+            c_base=self.c_base,
+            noise_fraction=0,
+            dirichlet_alpha=None,
+            distribution_validity_epsilon=self.distribution_validity_epsilon
+        )
+
+        self.children[child_idx] = new_child
+
+        return new_child.v
+
 
     def backprop(self, idx, v):
         self.N[idx] += 1
@@ -121,35 +192,19 @@ class MCTSNode(ABC):
     def simulation(self):
 
         # Select next node from children of current
-        idx = self.selection()
-        child = self.children[idx]
+        child_idx = self.selection()
+        child = self.children[child_idx]
 
-        # If node already present, just continue tree traversal
+        # If node already present, continue tree traversal
         if child is not None:
-
             v = child.simulation()
 
         # If new leaf node, apply expansion. No rollout necessary
         else:
-
-            # Expansion: apply move 
-            action = self.state.legal_actions[idx]
-            new_game_state = self.state.action(action)
-
-            # Expansion: create new child node
-            new_child = self.new_node(
-                new_game_state,
-                noise_fraction=0,
-                dirichlet_alpha=3,
-                distribution_validity_epsilon=1e-6
-            )
-
-            self.children[idx] = new_child
-
-            v = new_child.v
+            v = self.expansion(child_idx)
 
         # Apply backprop at this node
-        self.backprop(idx, v)
+        self.backprop(child_idx, v)
 
         # Pass down value for backprop in parent node
         return v
@@ -344,20 +399,7 @@ class MCTSNode(ABC):
     #     return self.N**(1/temperature) # raise to power elementwise
 
 
-    # def C_puct(self, N_parent):
 
-    #     '''
-    #     A multiplying factor on the confidence bound, which acts to modulate exploration rate.
-        
-    #     Slowly increases as number of visits to parent node rises. 
-    #     '''
-
-    #     c_init = 1.25
-    #     c_base = 19652
-
-    #     C = np.log((1 + N_parent + c_base)/c_base) + c_init
-
-    #     return C
 
 
     # def build_tree_and_choose_move(self, time_limit=None, sims_limit=None):
