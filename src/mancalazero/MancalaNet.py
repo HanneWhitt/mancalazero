@@ -3,7 +3,7 @@ from torch import nn
 import torch.nn.functional as F
 
 
-class PolicyValueFeedForward(nn.Module):
+class MancalaNet(nn.Module):
 
     '''
     A neural network to take as input:
@@ -30,7 +30,7 @@ class PolicyValueFeedForward(nn.Module):
         n_actions = 6
     ):
         
-        super(PolicyValueFeedForward, self).__init__()
+        super(MancalaNet, self).__init__()
 
         shared_dims = [input_length, *shared_layers]
         self.shared = [(nn.Linear(i, j), nn.BatchNorm1d(j)) for i, j in zip(shared_dims, shared_dims[1:])]
@@ -42,7 +42,7 @@ class PolicyValueFeedForward(nn.Module):
         self.v_layers = [(nn.Linear(i, j), nn.BatchNorm1d(j)) for i, j in zip(value_dims, value_dims[1:])]
 
 
-    def masked_softmax(self, input, mask, dim=0):
+    def masked_softmax(self, input, mask):
 
         """
         We need to manually implement a version of softmax that ignores zeros in the mask; i.e 
@@ -63,7 +63,7 @@ class PolicyValueFeedForward(nn.Module):
         print('\n masked\n', masked)
 
         # Then apply softmax
-        return masked/masked.sum(dim, keepdim=True)
+        return masked/masked.sum(1, keepdim=True)
 
 
     def forward(self, s, mask):
@@ -94,26 +94,5 @@ class PolicyValueFeedForward(nn.Module):
         v = F.tanh(v)
 
         return p, v
-
-
-if __name__ == '__main__':
-
-    import torch
-
-    mnet = PolicyValueFeedForward()
-    # print(mnet.shared_layers)
-    # print(mnet.policy_layers)
-    # print(mnet.value_layers)
-
-    rep = torch.Tensor([[1]*16, [1]*16])
-
-    legal_moves = torch.Tensor([[1, 1, 1, 0, 0, 1], [1, 1, 1, 0, 0, 1]])
-
-
-    policy, value = mnet(rep, legal_moves)
-
-    # print(policy)
-
-    # print(value)
 
 

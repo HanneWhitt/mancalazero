@@ -91,12 +91,12 @@ class MancalaBoard(GameState):
         #print('New state validity OK')
 
 
-    def get_observation(self):
+    def get_observation(self, player):
         '''
         Return the state of the game as seen by the current player
         '''
         observation = self.state.copy()
-        if self.current_player == 1:
+        if player == 1:
             observation = self.reverse_view(observation)
         return observation
     
@@ -113,7 +113,7 @@ class MancalaBoard(GameState):
         ''' 
 
         # Useful shorthand to rotate the board if appropriate
-        new_state = self.get_observation()
+        new_state = self.get_observation(self.current_player)
 
         # MOVE STONES
         # Pick up stones
@@ -185,7 +185,7 @@ class MancalaBoard(GameState):
 
     def get_legal_actions(self):
         # Shorthand to view board from current player's perspective
-        observation = self.get_observation()
+        observation = self.get_observation(self.current_player)
         return np.nonzero(observation[:6])[0]
 
 
@@ -207,7 +207,7 @@ class MancalaBoard(GameState):
 
         Differs depending on rule for when one side is empty
         '''
-        observation = self.get_observation()
+        observation = self.get_observation(self.current_player)
         current_player_no_stones = observation[:6].sum() == 0
 
         if current_player_no_stones:

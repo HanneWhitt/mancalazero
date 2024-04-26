@@ -56,9 +56,27 @@ class GameState(ABC):
             self.legal_actions = self.get_legal_actions()
 
 
-    def get_observation(self):
+    @property
+    @abstractmethod
+    def current_player(self):
         '''
-        Return a tensor representing an observation of the state.
+        Return the current player index. Just return 0 for single-player games, 0 or 1 for 2 player, etc.
+        '''
+        pass
+
+
+    @property
+    @abstractmethod
+    def turn_number(self):
+        '''
+        Return the current turn number.
+        '''
+        pass
+
+
+    def get_observation(self, player):
+        '''
+        Return a tensor representing an observation of the state from the point of view of a specific player.
 
         Defaults to returning the state itself.
         

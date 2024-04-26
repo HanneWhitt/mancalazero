@@ -11,7 +11,7 @@ class MCTSNode(ABC):
     1) .legal_actions -> an np.array of indexes of all legal moves
     2) .action() -> accept a move index as argument, apply the move to update the state object, updating all necessary attributes. 
     3) .current_player = player number/label etc. The player whose turn it is, and whose perspective we evaluate the board from
-    4) .get_observation() -> A representation of the board as an array of features
+    4) .get_observation() -> A representation of the board from perspective of a specified player
     5) .game_over() -> True or False game terminated
     6) .check_outcome() -> in a game where .game_over() returns True, return the player number/label of the victor OR None in the case of draw
 
@@ -69,7 +69,8 @@ class MCTSNode(ABC):
 
         # p contains prior across legal moves in self.legal_moves
         # v contains nnet-estimated value of current state for current player
-        self.p, self.v = self.prior_function(self.state.get_observation(), self.state.legal_actions)
+        observation = self.state.get_observation(self.state.current_player)
+        self.p, self.v = self.prior_function(observation, self.state.legal_actions)
         self.dirichlet_added = False
 
         # In self-play, at the root node, we add noise for exploration
@@ -224,28 +225,25 @@ class MCTSNode(ABC):
         return v
 
 
-    def search_probabilities(self, temperature=1):
+    def search_probabilities(self):
 
         """
-        Return the improved policy after MCTS search, modulated by temp parameter
+        Return the improved policy after MCTS search
+
+        Temperature parameter implemented where this is used (Agent class)
         """
-
-        pi = self.N**(1/temperature)
-
-        # standardise
-        pi = pi/pi.sum()
-
-        return pi
+       
+        return self.N/self.N.sum()
 
 
-    def search(self, n_sims=800, temperature=1):
+    def search(self, n_sims=800):
 
         """Run repeated simulations and return search probabilities"""
 
         for sim in range(n_sims):
             self.simulation()
 
-        return self.search_probabilities(temperature)
+        return self.search_probabilities()
 
 
     def display(self):
