@@ -13,7 +13,7 @@ class Agent(ABC):
         '''
         Return a probability of selecting each move according to the agent's judgement 
 
-        Must only return policy over legally valid moves
+        Must only return probability over legal moves
         '''
         pass
         
@@ -36,7 +36,9 @@ class Agent(ABC):
 
         # Even if non-stochastic, it's possible there could be more than one action with max policy
         # Select randomly from these
-        return np.random.choice(legal_actions, p=policy)
+        action = np.random.choice(legal_actions, p=policy)
+
+        return action, policy
 
 
 class RandomAgent(Agent):

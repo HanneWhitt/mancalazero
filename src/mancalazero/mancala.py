@@ -2,7 +2,7 @@ import numpy as np
 from mancalazero.Game import GameState
 
 
-class MancalaBoard(GameState):
+class Mancala(GameState):
 
     '''
     An object to represent a game of mancala, implementing board representations, legal moves, game termination/win conditions etc.
@@ -19,6 +19,8 @@ class MancalaBoard(GameState):
         ii) Play simply passes back to other player ('pass_back')
 
     '''
+
+    actions_list = [0, 1, 2, 3, 4, 5]
 
     def __init__(
         self,
@@ -166,7 +168,8 @@ class MancalaBoard(GameState):
         # Increment turn number
         new_state[-1] = self.turn_number + 1
 
-        return MancalaBoard(
+        # TODO: can we make a new classmethod to return an instance of child class
+        return Mancala(
             new_state,
             self.move_history,
             self.check_validity,

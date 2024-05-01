@@ -9,6 +9,7 @@ class GameState(ABC):
     Essentially a state with functions attached
     '''
 
+
     def __init__(self, state=None, move_history=True, check_validity=True):
         if state is None:
             state = self.new_game_state()
@@ -23,7 +24,20 @@ class GameState(ABC):
             self.move_history = False
 
 
-    @staticmethod
+    @property
+    @abstractmethod
+    def actions_list(self):
+        '''
+        Should return a list of all possible actions in the game
+        '''
+        pass
+
+
+    @classmethod 
+    def total_actions(cls):
+        return len(cls.actions_list)
+
+
     @abstractmethod
     def new_game_state(self):
         '''

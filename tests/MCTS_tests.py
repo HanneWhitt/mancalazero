@@ -1,4 +1,4 @@
-from mancalazero.mancala import MancalaBoard
+from mancalazero.mancala import Mancala
 from mancalazero.MCTS import MCTSNode
 import numpy as np
 from mancalazero.visualization import MCTS_visualization, MCTS_expansion_series
@@ -50,7 +50,7 @@ class TestMCTSNode(MCTSNode):
     #     return {**original, **new}
 
 
-mancala_game_state = MancalaBoard(starting_stones=4)
+mancala_game_state = Mancala(starting_stones=4)
 np.random.seed(0)
 test_mcts_node = TestMCTSNode(
     mancala_game_state,
@@ -87,7 +87,7 @@ print(test_mcts_node.search_probabilities())
 
 
 
-# mancala_game_state = MancalaBoard(starting_stones=4)
+# mancala_game_state = Mancala(starting_stones=4)
 # np.random.seed(0)
 
 # test_mcts_node = TestMCTSNode(mancala_game_state, c_init=2)

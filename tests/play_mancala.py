@@ -1,6 +1,6 @@
-from mancalazero.mancala import MancalaBoard
+from mancalazero.mancala import Mancala
 
-board = MancalaBoard()
+board = Mancala()
 
 board.play_in_console()
 

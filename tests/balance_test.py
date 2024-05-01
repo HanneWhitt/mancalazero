@@ -1,4 +1,4 @@
-from mancalazero.mancala import MancalaBoard
+from mancalazero.mancala import Mancala
 from mancalazero.Agent import RandomAgent
 import pandas as pd
 
@@ -20,7 +20,7 @@ for n_stones in [3]:
             if game % 100 == 0:
                 print(f'{n_stones} stones, {variant} variant, game {game}/{n_games}')
 
-            mancala_game = MancalaBoard(no_moves_policy=variant, starting_stones=n_stones)
+            mancala_game = Mancala(no_moves_policy=variant, starting_stones=n_stones)
 
             Agent_0 = RandomAgent()
             Agent_1 = RandomAgent()

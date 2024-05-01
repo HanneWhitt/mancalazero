@@ -5,15 +5,21 @@ import numpy as np
 
 random_agent = RandomAgent()
 
-legal_actions = list(range(6))
+legal_actions = [0, 1, 3, 5]
+
+p = random_agent.policy(None, legal_actions)
+
+print(p)
+input()
 
 a = random_agent.select_action(None, legal_actions)
 
 print(a)
 
-# choices = [random_agent.select_action(None, legal_actions) for n in range(100000)]
+choices = [random_agent.select_action(None, legal_actions)[0] for n in range(100000)]
 
-# print(Counter(choices))
+print(Counter(choices))
+
 
 
 class FixedAgent(Agent):
@@ -26,11 +32,11 @@ legal_actions = ['a', 'b', 'c', 'd']
 fixed_agent = FixedAgent()
 
 print('TEMP 1')
-choices = [fixed_agent.select_action(None, legal_actions, temperature=1) for n in range(100000)]
+choices = [fixed_agent.select_action(None, legal_actions, temperature=1)[0] for n in range(100000)]
 print(Counter(choices))
 
 print('TEMP 0')
-choices = [fixed_agent.select_action(None, legal_actions, temperature=0) for n in range(100000)]
+choices = [fixed_agent.select_action(None, legal_actions, temperature=0)[0] for n in range(100000)]
 print(Counter(choices))
 
 print('TEMP 10')
