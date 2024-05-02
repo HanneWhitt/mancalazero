@@ -25,9 +25,7 @@ dataset = GameDataset(
 #         print(thing)
 #     input()
 
-
-
-train_dataloader = DataLoader(dataset, batch_size=2, shuffle=False, collate_fn=custom_collate)
+train_dataloader = DataLoader(dataset, batch_size=1, shuffle=False, collate_fn=custom_collate)
 
 s = time.time()
 example = next(iter(train_dataloader))

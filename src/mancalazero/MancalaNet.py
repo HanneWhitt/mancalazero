@@ -1,11 +1,7 @@
 import torch
 from torch import nn
 import torch.nn.functional as F
-
-
-
-
-
+    
 
 class MancalaNet(nn.Module):
 
@@ -37,13 +33,16 @@ class MancalaNet(nn.Module):
         super(MancalaNet, self).__init__()
 
         shared_dims = [input_length, *shared_layers]
-        self.shared = [(nn.Linear(i, j), nn.BatchNorm1d(j)) for i, j in zip(shared_dims, shared_dims[1:])]
+        self.core = nn.ModuleList([nn.Linear(i, j) for i, j in zip(shared_dims, shared_layers)])
+        self.core_bn = nn.ModuleList([nn.BatchNorm1d(j) for j in shared_layers])
 
         policy_dims = [shared_layers[-1], *policy_head_layers, n_actions]
-        self.p_layers = [(nn.Linear(i, j), nn.BatchNorm1d(j)) for i, j in zip(policy_dims, policy_dims[1:])]
+        self.p_head = nn.ModuleList([nn.Linear(i, j) for i, j in zip(policy_dims, policy_dims[1:])])
+        self.p_bn = nn.ModuleList([nn.BatchNorm1d(j) for j in policy_head_layers])
 
         value_dims = [shared_layers[-1], *value_head_layers, 1]
-        self.v_layers = [(nn.Linear(i, j), nn.BatchNorm1d(j)) for i, j in zip(value_dims, value_dims[1:])]
+        self.v_head = nn.ModuleList([nn.Linear(i, j) for i, j in zip(value_dims, value_dims[1:])])
+        self.v_bn = nn.ModuleList([nn.BatchNorm1d(j) for j in value_head_layers])
 
 
     def masked_softmax(self, input, mask):
@@ -53,48 +52,48 @@ class MancalaNet(nn.Module):
         it outputs a probability distribution with zeros for illegal moves, and probabilities summing
         to 1 for all other moves. Exp(0) = 1, so this is not as simple as multiplying input by mask.
         """
-
-        print('\n input\n', input)
-
         # Take exponential for all values 
         exp = torch.exp(input)
-
-        print('\n exp\n',exp)
     
         # THEN apply mask
         masked = exp*mask
-
-        print('\n masked\n', masked)
 
         # Then apply softmax
         return masked/masked.sum(1, keepdim=True)
 
 
-    def forward(self, s, mask):
+    def forward(self, obs, mask):
         
-        for layer, batchnorm in self.shared:
-            s = layer(s)
-            s = F.relu(s)
-            s = batchnorm(s)
+        # Core
+        for layer, batchnorm in zip(self.core, self.core_bn):
+            obs = layer(obs)
+            obs = F.relu(obs)
+            obs = batchnorm(obs)
 
-        p = s
-        for p_layer, batchnorm in self.p_layers[:-1]:
+        # Policy head
+        p = obs.clone()
+        for p_layer, batchnorm in zip(self.p_head, self.p_bn):
             p = p_layer(p)
             p = F.relu(p)
             p = batchnorm(p)
-        p = self.p_layers[-1][0](p)
+
+        # No batchnorm on last layer
+        p = self.p_head[-1](p)
 
         # Softmax for valid probability distribution, mask to zero out illegal moves
         p = self.masked_softmax(p, mask)
 
-        v = s
-        for v_layer, batchnorm in self.v_layers[:-1]:
+        # Value head
+        v = obs.clone()
+        for v_layer, batchnorm in zip(self.v_head, self.v_bn):
             v = v_layer(v)
             v = F.relu(v)
             v = batchnorm(v)
-        v = self.v_layers[-1][0](v)
 
-        # tanh on value to match outcome in range [-1, 1]
+        # No batchnorm on last layer
+        v = self.v_head[-1](v)
+
+        # tanh on value to match outcome to range [-1, 1]
         v = F.tanh(v)
 
         return p, v

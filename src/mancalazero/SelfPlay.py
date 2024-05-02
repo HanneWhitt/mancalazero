@@ -71,14 +71,14 @@ class SelfPlay(ABC):
 
         outcome, pos, pol, las = self.sample_game(positions_per_game)
 
-        input = np.vstack(pos)#.astype(float)
-        outcome = np.array(outcome).repeat(positions_per_game)
+        input = np.vstack(pos).astype('float32')
+        outcome = np.array(outcome).astype('float32').repeat(positions_per_game)
         
         search_probs = [fill(self.Game.total_actions(), idxs, probs) for probs, idxs in zip(pol, las)]
-        search_probs = np.vstack(search_probs)
+        search_probs = np.vstack(search_probs).astype('float32')
         
         masks = [fill(self.Game.total_actions(), la) for la in las]
-        masks = np.vstack(masks)#.astype(float)
+        masks = np.vstack(masks).astype('float32')
 
         return input, outcome, search_probs, masks
 
