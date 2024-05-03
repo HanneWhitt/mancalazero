@@ -1,8 +1,7 @@
 import numpy as np
-from abc import ABC, abstractmethod
 
 
-class MCTSNode(ABC):
+class MCTSNode:
 
     '''
     Implementation of Monte Carlo Tree Search version used in AlphaZero (no rollout)
@@ -25,6 +24,7 @@ class MCTSNode(ABC):
 
     def __init__(self,
         state,
+        prior_function,
         c_init=3,
         c_base=19652,
         noise_fraction=0,
@@ -43,57 +43,52 @@ class MCTSNode(ABC):
         # The state of the game at this node
         self.state = state
 
-        # Number of legal actions from this state
-        self.n_legal_actions = len(self.state.legal_actions)
+        if self.state.game_over:
+            self.v = self.state.check_outcome()
+            print('Tree reached GAME OVER')
 
-        # c_init and c_base are used to calculate c_puct, a multiplying factor 
-        # on the confidence bound which acts to modulate exploration rate.
-        # c_puct slowly increases as number of visits to parent node rises. 
-        self.c_init=c_init
-        self.c_base=c_base
+        else:
 
-        # Used to check validity of probability distributions
-        self.distribution_validity_epsilon = distribution_validity_epsilon
+            # Prior function
+            self.prior_function = prior_function
 
-        # Number of node visits for each child action
-        self.N = np.zeros(self.n_legal_actions)
+            # Number of legal actions from this state
+            self.n_legal_actions = len(self.state.legal_actions)
 
-        # Total action values for each child action
-        self.W = np.zeros(self.n_legal_actions)
+            # c_init and c_base are used to calculate c_puct, a multiplying factor 
+            # on the confidence bound which acts to modulate exploration rate.
+            # c_puct slowly increases as number of visits to parent node rises. 
+            self.c_init=c_init
+            self.c_base=c_base
 
-        # Mean action values for each child action
-        self.Q = np.zeros(self.n_legal_actions)
+            # Used to check validity of probability distributions
+            self.distribution_validity_epsilon = distribution_validity_epsilon
 
-        # A list to contain child nodes which are themselves instances of this class, each initialised as None
-        self.children = [None]*self.n_legal_actions
+            # Number of node visits for each child action
+            self.N = np.zeros(self.n_legal_actions)
 
-        # p contains prior across legal moves in self.legal_moves
-        # v contains nnet-estimated value of current state for current player
-        observation = self.state.get_observation(self.state.current_player)
-        self.p, self.v = self.prior_function(observation, self.state.legal_actions)
-        self.dirichlet_added = False
+            # Total action values for each child action
+            self.W = np.zeros(self.n_legal_actions)
 
-        # In self-play, at the root node, we add noise for exploration
-        if noise_fraction != 0:
-            self.add_dirichlet_noise(noise_fraction, dirichlet_alpha)
+            # Mean action values for each child action
+            self.Q = np.zeros(self.n_legal_actions)
 
-        # Optionally check that self.p is a valid probability distribution
-        if distribution_validity_epsilon:
-            self.check_policy_valid()
+            # A list to contain child nodes which are themselves instances of this class, each initialised as None
+            self.children = [None]*self.n_legal_actions
 
+            # p contains prior across legal moves in self.legal_moves
+            # v contains nnet-estimated value of current state for current player
+            #TODO: queue for network evalations
+            self.p, self.v = self.prior_function(self.state)
+            self.dirichlet_added = False
 
-    @abstractmethod
-    def prior_function(self, observation, legal_actions):
+            # In self-play, at the root node, we add noise for exploration
+            if noise_fraction != 0:
+                self.add_dirichlet_noise(noise_fraction, dirichlet_alpha)
 
-        """
-        Implement a function that returns:
-         
-        (i) a policy vector with the same length as the number of legal actions
-        (ii) a value between -1 and 1
-        
-        """
-
-        pass
+            # Optionally check that self.p is a valid probability distribution
+            if distribution_validity_epsilon:
+                self.check_policy_valid()
     
 
     def add_dirichlet_noise(self, noise_fraction, alpha):
@@ -115,6 +110,7 @@ class MCTSNode(ABC):
     def new_node(
         cls,
         state,
+        prior_function,
         c_init,
         c_base,
         noise_fraction,
@@ -123,6 +119,7 @@ class MCTSNode(ABC):
     ):
         return cls(
             state=state,
+            prior_function=prior_function,
             c_init=c_init,
             c_base=c_base,
             noise_fraction=noise_fraction,
@@ -186,6 +183,7 @@ class MCTSNode(ABC):
         # Create new child node; set noise_fraction to zero - only apply dirichlet noise at root
         new_child = self.new_node(
             new_game_state,
+            self.prior_function,
             c_init=self.c_init,
             c_base=self.c_base,
             noise_fraction=0,
@@ -210,9 +208,16 @@ class MCTSNode(ABC):
         child_idx = self.selection()
         child = self.children[child_idx]
 
-        # If node already present, continue tree traversal
+        # If node already present
         if child is not None:
-            v = child.simulation()
+
+            # If the game is over, return the final value of the game
+            if child.state.game_over:
+                v = child.v
+            
+            # Otherwise, continue tree traversal
+            else:
+                v = child.simulation()
 
         # If new leaf node, apply expansion. No rollout necessary
         else:
@@ -236,11 +241,14 @@ class MCTSNode(ABC):
         return self.N/self.N.sum()
 
 
-    def search(self, n_sims=800):
+    def search(self, n_sims=800, msg_every=None):
 
         """Run repeated simulations and return search probabilities"""
-
         for sim in range(n_sims):
+
+            if sim % msg_every == 0:
+                print(f'Sim {sim}')
+
             self.simulation()
 
         return self.search_probabilities()

@@ -1,4 +1,5 @@
 from mancalazero.Agent import Agent
+from mancalazero.utils import fill
 from abc import ABC, abstractmethod
 import numpy as np
 
@@ -83,13 +84,3 @@ class SelfPlay(ABC):
         return input, outcome, search_probs, masks
 
 
-def fill(length, indexes, values=1):
-    mask = np.zeros(length)
-    mask[indexes] = values
-    return mask
-
-
-def np_nans(shape, dtype=float):
-    a = np.empty(shape, dtype)
-    a.fill(np.nan)
-    return a
