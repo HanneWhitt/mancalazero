@@ -63,7 +63,7 @@ class MancalaNet(nn.Module):
 
 
     def forward(self, obs, mask):
-        
+
         # Core
         for layer, batchnorm in zip(self.core, self.core_bn):
             obs = layer(obs)
@@ -99,3 +99,28 @@ class MancalaNet(nn.Module):
         return p, v
 
 
+    def check_all_params(self):
+        problem = False
+        for name, tensor in self.named_parameters():
+            problem = check_nan_inf(tensor, name)
+        if not problem:
+            print('check_all_params ran, no problem found')
+
+
+def check_nan_inf(tensor, name):
+    nan_inf = False
+    if torch.isnan(tensor).any():
+        print(f"Tensor '{name}' features nan values")
+        response = input("Print tensor?")
+        if response == '':
+            print(tensor)
+        input()
+        nan_inf = True
+    elif not torch.isfinite(tensor).all():
+        print(f"Tensor '{name}' features inf values")
+        response = input("Print tensor?")
+        if response == '':
+            print(tensor)
+        input()
+        nan_inf = True
+    return nan_inf

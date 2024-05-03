@@ -4,28 +4,26 @@ from torch import nn
 
 class AlphaZeroLoss(nn.Module):
     
-    def __init__(self, l2_reg_coeff=0.0001):
+    def __init__(self, l2_reg_coeff=0.0001, eps=1e-10):
         super(AlphaZeroLoss, self).__init__()
         self.l2_reg_coeff = l2_reg_coeff
+        self.eps = eps
 
     def forward(self, z, v, pi, p, mask, named_parameters):
 
         # MSE on value estimate vs true outcome
-        se = (z - v)**2
+        per_example_loss = (z - v)**2
 
         # Safe log of network policy stops zeros (from precision limit) in p from causing -inf in log
-        safe_log_p = torch.clamp(torch.log(p), -100)
+        safe_log_p = torch.log(torch.clamp(p, min=self.eps))
 
         # Cross entropy comparing search probs to network policy
         # Invalid moves masked out (so no impact on loss)
-        cross_ent = torch.sum(mask*pi*safe_log_p, 1)
+        per_example_loss += torch.sum(mask*pi*safe_log_p, 1)
 
         # L2 regularization. Believe PyTorch default applies erroneously to batchnorm parameters and bias?
-        l2_reg = 0
         for name, params in named_parameters:
             if 'bn' not in name and 'bias' not in name:
-                l2_reg += torch.sum(params**2)
-
-        per_example_loss = se + cross_ent + self.l2_reg_coeff*l2_reg
+                per_example_loss += self.l2_reg_coeff*torch.sum(params**2)
 
         return per_example_loss.mean()
