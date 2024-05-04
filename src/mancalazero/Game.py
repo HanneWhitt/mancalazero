@@ -92,11 +92,11 @@ class GameState(ABC):
         '''
         Return a tensor representing an observation of the state from the point of view of a specific player.
 
-        Defaults to returning the state itself.
+        Defaults to returning the state itself for all players
         
-        Can be overriden in games where observation is different to state.
+        Can be overriden in games where observation is different to state e.g hidden information games
         '''
-        return self.state
+        return self.state.copy()
 
 
     @abstractmethod

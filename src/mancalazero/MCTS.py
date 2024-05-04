@@ -160,13 +160,23 @@ class MCTSNode:
         Combine an average action value with a bonus encouraging exploration in line with prior policy
         '''
 
-        return self.Q + self.U()
+        # We need to choose moves which maximise value for the current player
+        if self.state.current_player == 0:
+            player_value = self.Q
+        else:
+            player_value = -self.Q
+
+        return player_value + self.U()
 
 
     def selection(self):
 
         '''
         Select daughter node for this simulation
+
+        In case that multiple actions have same max score, randomly select from these actions
+
+        (Can make behaviour reproducible with random seed if desired)
         '''
 
         child_idx = self.action_scores().argmax()
@@ -241,12 +251,12 @@ class MCTSNode:
         return self.N/self.N.sum()
 
 
-    def search(self, n_sims=800, msg_every=None):
+    def search(self, n_sims=800, msg_every=1e10):
 
         """Run repeated simulations and return search probabilities"""
         for sim in range(n_sims):
 
-            if sim % msg_every == 0:
+            if sim != 0 and sim % msg_every == 0:
                 print(f'Sim {sim}')
 
             self.simulation()
@@ -277,22 +287,30 @@ class MCTSNode:
     def get_node_description(self):
         
         """
-        Just returns v by default. Override if desired
+        Return everything you could possibly want to know about an MCTS node
         """
+        boardview = self.state.display()
+        N_parent = self.N.sum() + 1
 
         return {
             'V': self.v,
             'P': self.p.tolist(),
             'N': self.N.tolist(),
             'W': self.W.tolist(),
-            'Q': self.Q.tolist()
+            'Q': self.Q.tolist(),
+            'U': self.U().tolist(),
+            'state': boardview,
+            'N_parent': N_parent,
+            'C_puct': self.C_puct(N_parent),
+            'score': self.action_scores().tolist(),
+            'current_player': self.state.current_player,
         }
 
 
     def get_edge_description(self, child_idx):
 
         """
-        Returns associated action, P element, N element, W element, Q element by default; override if desired
+        Returns everything you could possibly want to know about an MCTS edge
         """
 
         if self.children[child_idx] is None:
@@ -303,7 +321,9 @@ class MCTSNode:
             'P': self.p[child_idx],
             'N': self.N[child_idx],
             'W': self.W[child_idx],
-            'Q': self.Q[child_idx]
+            'Q': self.Q[child_idx],
+            'U': self.U()[child_idx],
+            'score': self.action_scores()[child_idx]
         }
 
 

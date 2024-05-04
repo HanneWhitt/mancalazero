@@ -13,6 +13,7 @@ except ModuleNotFoundError:
         """
     raise ModuleNotFoundError(msg)
 
+NODE_PLAYER_COLOR_SCHEME = {0: 'blue', 1: 'red'}
 
 def MCTS_visualization(
     nodes,
@@ -26,10 +27,15 @@ def MCTS_visualization(
     figsize=(12, 8),
     font_size=8,
     node_size=5000,
+    color_map=None,
     savefile=None,
 ):
 
     G = create_graph(nodes, edges)
+
+    if color_map == None:
+        # Default:color by player
+        color_map = [NODE_PLAYER_COLOR_SCHEME[node['current_player']] for node in nodes.values()]
 
     node_labels = create_labels(nodes, node_label_keys)
     edge_labels = create_labels(edges, edge_label_keys)
@@ -42,7 +48,8 @@ def MCTS_visualization(
     nx.draw(
         G,
         pos = pos,
-        node_size=node_size
+        node_size=node_size,
+        node_color=color_map
     )
     nx.draw_networkx_labels(
         G,

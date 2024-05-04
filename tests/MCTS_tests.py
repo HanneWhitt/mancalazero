@@ -2,64 +2,42 @@ from mancalazero.mancala import Mancala
 from mancalazero.MCTS import MCTSNode
 import numpy as np
 from mancalazero.visualization import MCTS_visualization, MCTS_expansion_series
+from mancalazero.Game import GameState
 
 
-class TestMCTSNode(MCTSNode):
+def random_prior(state:GameState):
 
-    def prior_function(self, observation, legal_actions):
+    """
+    A dumb prior function for testing.
 
-        """
-        A dumb prior function for testing.
-
-        Returns:
-        
-        (i) a policy which is a uniform probability distribution across all the legal moves
-        (ii) A value which is a random number in range -1 to 1
-        
-        """
-
-        n_legal_actions = len(legal_actions)
-        uniform_p = 1/n_legal_actions
-
-        policy = np.ones(n_legal_actions)*uniform_p
-        value = np.random.uniform(low=-1.0, high=1.0)
-
-        return policy, value
-
-
-    def get_node_description(self):
-        original = super().get_node_description()
-        boardview = self.state.display()
-        N_parent = self.N.sum() + 1
-        new = {
-            'state': boardview,
-            'N_parent': N_parent,
-            'C_puct': self.C_puct(N_parent),
-            'U': self.U().tolist(),
-            'score': self.action_scores().tolist()
-        }
-        return {**new, **original}
+    Returns:
     
+    (i) a policy which is a uniform probability distribution across all the legal moves
+    (ii) A value which is a random number in range -1 to 1
+    
+    """
 
-    # def get_edge_description(self, child_idx):
-    #     original = super().get_edge_description(child_idx)
-    #     new = {
-    #         'U': self.U()[child_idx],
-    #         'score': self.action_scores()[child_idx]
-    #     }
-    #     return {**original, **new}
+    n_legal_actions = len(state.legal_actions)
+    uniform_p = 1/n_legal_actions
+
+    policy = np.ones(n_legal_actions)*uniform_p
+    value = np.random.uniform(low=-1.0, high=1.0)
+
+    return policy, value
 
 
 mancala_game_state = Mancala(starting_stones=4)
-np.random.seed(0)
-test_mcts_node = TestMCTSNode(
+
+# np.random.seed(0)
+test_mcts_node = MCTSNode(
     mancala_game_state,
+    prior_function=random_prior,
     c_init=2,
-    noise_fraction=0.5,
+    noise_fraction=0,
 )
+
+
 nodes_edges_list = [test_mcts_node.get_nodes_and_edges()]
-
-
 for i in range(10):
     test_mcts_node.simulation()
     nodes_edges_list.append(test_mcts_node.get_nodes_and_edges())
@@ -75,8 +53,9 @@ for i in range(10):
 # )
 MCTS_expansion_series(
     nodes_edges_list,
-    savefolder='scratch/examining_U_etc',
-    node_label_keys=['state', 'V', 'Q', 'P', 'U', 'score'],
+    savefolder='scratch/opposing_play',
+    node_label_keys=['current_player', 'state', 'V', 'Q', 'P', 'U', 'score'],
+    edge_label_keys=['action'],
     figsize=(25, 9),
     node_size=6500,
 )

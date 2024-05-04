@@ -30,10 +30,10 @@ for n_stones in [3]:
                 mancala_game.display()
 
                 if mancala_game.current_player == 0:
-                    action = Agent_0.select_action(mancala_game.state, mancala_game.legal_actions)
+                    action = Agent_0.select_action(mancala_game)
                     #print('Agent 0 chose action: ', action)
                 else:
-                    action = Agent_1.select_action(mancala_game.state, mancala_game.legal_actions)
+                    action = Agent_1.select_action(mancala_game)
                     #print('Agent 1 chose action: ', action)
                 mancala_game = mancala_game.action(action)
 

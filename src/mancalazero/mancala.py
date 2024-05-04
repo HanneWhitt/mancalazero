@@ -93,7 +93,7 @@ class Mancala(GameState):
         #print('New state validity OK')
 
 
-    def get_observation(self, player):
+    def player_view(self, player):
         '''
         Return the state of the game as seen by the current player
         '''
@@ -114,8 +114,8 @@ class Mancala(GameState):
         Set everything up such that updated board representation is ready for next move/evaluation
         ''' 
 
-        # Useful shorthand to rotate the board if appropriate
-        new_state = self.get_observation(self.current_player)
+        # Rotate the board if appropriate
+        new_state = self.player_view(self.current_player)
 
         # MOVE STONES
         # Pick up stones
@@ -159,8 +159,6 @@ class Mancala(GameState):
                 if other_player_has_stones and not ended_in_current_player_store:
                     new_state[-2] = 1 - self.current_player
 
-
-
         # Rotate the board back again if appropriate
         if self.current_player == 1:
             new_state = self.reverse_view(new_state)
@@ -188,8 +186,8 @@ class Mancala(GameState):
 
     def get_legal_actions(self):
         # Shorthand to view board from current player's perspective
-        observation = self.get_observation(self.current_player)
-        return np.nonzero(observation[:6])[0]
+        view = self.player_view(self.current_player)
+        return np.nonzero(view[:6])[0]
 
 
     def check_score(self):
@@ -210,7 +208,7 @@ class Mancala(GameState):
 
         Differs depending on rule for when one side is empty
         '''
-        observation = self.get_observation(self.current_player)
+        observation = self.player_view(self.current_player)
         current_player_no_stones = observation[:6].sum() == 0
 
         if current_player_no_stones:
@@ -258,7 +256,7 @@ class Mancala(GameState):
     def play_in_console(self):
         player_entry = ''
         while player_entry != 'exit':
-            self.display()
+            print(self.display())
             if self.game_over:
                 print('\nGame Over!')
                 print('Game value:', self.check_winner())

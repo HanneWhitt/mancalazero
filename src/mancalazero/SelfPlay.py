@@ -38,15 +38,13 @@ class SelfPlay(ABC):
         while not game.game_over:    
 
             agent = self.agents[game.current_player]
-            observation = game.get_observation(game.current_player)
-            legal_actions = game.legal_actions
             temperature = self.temperature_scheme(game.turn_number)
-            action, policy = agent.select_action(observation, legal_actions, temperature)
+            action, policy = agent.select_action(game, temperature)
 
             if not outcome_only:
-                position_record.append(observation)
+                position_record.append(game.get_observation(game.current_player))
                 policy_record.append(policy)
-                legal_actions_record.append(legal_actions)
+                legal_actions_record.append(game.legal_actions)
 
             game = game.action(action)
 

@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from mancalazero.Game import GameState
 import numpy as np
 
 
@@ -9,7 +10,7 @@ class Agent(ABC):
     '''
 
     @abstractmethod
-    def policy(self, state, legal_actions):
+    def policy(self, state: GameState):
         '''
         Return a probability of selecting each move according to the agent's judgement 
 
@@ -18,13 +19,13 @@ class Agent(ABC):
         pass
         
 
-    def select_action(self, state, legal_actions, temperature=1):
+    def select_action(self, state:GameState, temperature=1):
         
         '''
         Accept state as arg, return selected action 
         '''
         
-        policy = self.policy(state, legal_actions)
+        policy = self.policy(state)
         
         # If we want the best possible choice, t=0 i.e zero out all the non-maximal elements of the policy
         if temperature==0:
@@ -36,14 +37,15 @@ class Agent(ABC):
 
         # Even if non-stochastic, it's possible there could be more than one action with max policy
         # Select randomly from these
-        action = np.random.choice(legal_actions, p=policy)
+        action = np.random.choice(state.legal_actions, p=policy)
 
         return action, policy
 
 
 class RandomAgent(Agent):
 
-    def policy(self, state, legal_actions):
+    def policy(self, state):
+        legal_actions = state.legal_actions
         n_legal_actions = len(legal_actions)
         uniform_p = 1/n_legal_actions
         policy = np.ones(n_legal_actions)*uniform_p
