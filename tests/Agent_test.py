@@ -1,4 +1,4 @@
-from mancalazero.Agent import Agent, RandomAgent
+from mancalazero.agent import Agent, RandomAgent
 from mancalazero.mancala import Mancala
 from collections import Counter
 import numpy as np

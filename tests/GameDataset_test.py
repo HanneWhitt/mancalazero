@@ -1,8 +1,8 @@
-from mancalazero.GameDataset import GameDataset
+from mancalazero.gamedataset import GameDataset
 from mancalazero.mancala import Mancala
-from mancalazero.Agent import RandomAgent
+from mancalazero.agent import RandomAgent
 from torch.utils.data import DataLoader
-from mancalazero.GameDataset import GameDataset, TrainingSampler, custom_collate
+from mancalazero.gamedataset import GameDataset, TrainingSampler, custom_collate
 import time
 
 

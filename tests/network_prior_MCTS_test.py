@@ -1,6 +1,6 @@
-from mancalazero.MCTS import MCTSNode
-from mancalazero.network_prior import NetworkPrior
-from mancalazero.MancalaNet import MancalaNet
+from mancalazero.mcts import MCTSNode
+from scratch.network_prior import NetworkPrior
+from mancalazero.mancalanet import MancalaNet
 from mancalazero.mancala import Mancala
 
 

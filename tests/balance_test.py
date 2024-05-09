@@ -1,5 +1,5 @@
 from mancalazero.mancala import Mancala
-from mancalazero.Agent import RandomAgent
+from mancalazero.agent import RandomAgent
 import pandas as pd
 
 # Test: play two random agents against each other 10000 times

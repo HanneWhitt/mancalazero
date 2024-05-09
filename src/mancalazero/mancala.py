@@ -1,5 +1,5 @@
 import numpy as np
-from mancalazero.Game import GameState
+from mancalazero.gamestate import GameState
 
 
 class Mancala(GameState):
@@ -21,6 +21,7 @@ class Mancala(GameState):
     '''
 
     actions_list = [0, 1, 2, 3, 4, 5]
+    shape = (16,)
 
     def __init__(
         self,

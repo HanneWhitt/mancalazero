@@ -1,6 +1,6 @@
-from mancalazero.SelfPlay import SelfPlay
+from mancalazero.selfplay import SelfPlay
 from mancalazero.mancala import Mancala
-from mancalazero.Agent import RandomAgent
+from mancalazero.agent import RandomAgent
 
 
 Game = Mancala

@@ -1,8 +1,8 @@
 from mancalazero.mancala import Mancala
-from mancalazero.MCTS import MCTSNode
+from mancalazero.mcts import MCTSNode
 import numpy as np
-from mancalazero.visualization import MCTS_visualization, MCTS_expansion_series
-from mancalazero.Game import GameState
+from mancalazero.visualisation import MCTS_visualization, MCTS_expansion_series
+from mancalazero.gamestate import GameState
 
 
 def random_prior(state:GameState):

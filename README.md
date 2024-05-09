@@ -7,17 +7,19 @@ Part complete. Implemented using the methods described in:
 
 "[Mastering the game of Go without human knowledge](https://www.nature.com/articles/nature24270)", Silver et al., DeepMind, 2017
 
-The implementation is from the ground up, with fully original code and the only non-standard python libraries used being numpy and torch.
+The implementation is from the ground up, with fully original code and the only non-standard Python packages used being numpy, torch, and networkx/graphviz for MCTS tree visualisation. 
 
 ### Scripts:
 
-* ```mancala.py``` implements the rules of mancala in several variations.
+* ```gamestate.py``` contains an abstract base class (ABC) ```GameState``` intended as a framework for the implementation of a wide range of classical games; I hope that this strategy will make it possible to extend this project quite simply to other games once it works for Mancala. A simple test game, involving flipping a coin, can be seen in ```tests/gamestate_test.py```; ```mancala.py``` implements the rules of Mancala in several variations, and allows access to the state of a game as a vector of length 16, with features for the number of stones in each of the 14 spaces on the board, the current player, and the current turn number. 
 
-* ```policy_and_value_network.py``` implements a neural network which estimates, from the board position, (i) the value of the game to the current player (related to win probability), (ii) the policy - i.e a probability distribution with higher values for good moves. 
+* ```mancalanet.py``` uses PyTorch to build a neural network suitable for use in AlphaZero, taking as input the state of a game, and outputing a policy vector and value estimate. The policy vector is a probability distribution describing the networks' view of which moves are more or less promising, and the value provides the networks' estimate of win probability from the current position. The AlphaZero loss function is implemented in ```loss.py```, and uses the outcomes of real games to train the value component, the MCTS search probabilities to train the policy component, and a customised L2 weight regularisation as a measure against overfitting. 
 
-* ```MCTS.py``` implements Monte Carlo Tree Search, an algorithm which extends the neural network's strength by using it to look ahead and intelligently sample possible outcomes resulting from different moves. 
+* ```MCTS.py``` implements Monte Carlo Tree Search, an algorithm which extends the neural network's strength by using it to look ahead and intelligently sample possible outcomes resulting from different moves. The version used in AlphaZero, unusually, does not include a rollout, instead using the neural network alone to estimate value. ```MCTSNode``` therefore implements just the selection, expansion and backpropagation steps for each simulation, as well as the other small modifications made in AlphaZero, such as the addition of Dirichlet noise to the policy at the root node. ```visualisation.py``` provides functions to display the MCTS graph, and the data associated with each node and edge, as the tree expands. 
 
-* ```self_play.py```, (part complete) which plays off MCTS agents against each other to generate games that can be used to train the network. 
+* ```agent.py``` implements a very simple ABC ```Agent``` for agents which play games, requiring only a 'policy' method. Inheriting from this, ```RandomAgent``` chooses moves using a random uniform distribution, used in tests and during training initialisation. ```AlphaZeroAgent``` implements the final agent, using the network, and returning the search probabilities from MCTS as its policy.
+
+* ```selfplay.py```, plays ```Agent```s against each other to generate games that can be used to train the network, with options for random sampling of moves and control over the temperature parameter used for selection of moves depending on move number (allows tuning for exploratory vs. optimal play). This is currently under development; I hope to use an asynchronous producer-consumer pattern to maintain a large buffer of games that a torch ```DataLoader``` can randomly sample from, imitating the approach used in the original research. 
 
 
 ### Notes
