@@ -78,6 +78,8 @@ class MancalaNet(nn.Module):
             p = batchnorm(p)
 
         # No batchnorm on last layer
+
+
         p = self.p_head[-1](p)
 
         # Softmax for valid probability distribution, mask to zero out illegal moves

@@ -4,7 +4,8 @@ from mancalazero.gamedataset import GameDataset
 from mancalazero.mancala import Mancala
 from mancalazero.agent import RandomAgent
 from torch.utils.data import DataLoader
-from mancalazero.gamedataset import GameDataset, TrainingSampler, custom_collate
+from mancalazero.selfplay import SelfPlay
+from mancalazero.gamedataset import GameDataset, custom_collate
 import torch
 
 Game = Mancala
@@ -12,7 +13,7 @@ agents = [RandomAgent(), RandomAgent()]
 game_kwargs = {
     'starting_stones': 4
 }
-sampler = TrainingSampler(Game, agents, game_kwargs)
+sampler = SelfPlay(Game, agents, game_kwargs)
 dataset = GameDataset(
     sampler,
     positions_per_game=1

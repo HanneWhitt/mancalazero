@@ -1,8 +1,6 @@
 from mancalazero.agent import Agent
 from mancalazero.utils import fill, np_nans
-from abc import ABC, abstractmethod
 import numpy as np
-import asyncio
 
 
 class SelfPlay:
