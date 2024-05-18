@@ -71,14 +71,14 @@ class AlphaZeroAgent(Agent):
     def policy(self, state: GameState):
         mcts = MCTSNode(
             state,
-            self.network_prior,
+            self.prior_function,
             **self.mcts_kwargs
         )
         search_probabilities = mcts.search(**self.search_kwargs)
         return search_probabilities
     
 
-    def network_prior(self, state: GameState):
+    def prior_function(self, state: GameState):
 
         """
         Just a wrapper for torch policy/value model; puts in evaluation mode, adapts torch.tensor/numpy
@@ -101,4 +101,30 @@ class AlphaZeroAgent(Agent):
         self.network.eval()
         p, v = self.network(observation, mask)
 
-        return p.detach().numpy()[0][legal_actions], v.detach().numpy()[0][0]
+        p = p.detach().numpy()[0][legal_actions]
+        v = v.detach().numpy()[0][0]
+
+        return p, v
+    
+
+
+# class AlphaZeroInitial(AlphaZeroAgent):
+
+#     """
+#     A version of AlphaZero that uses no network, roughly equivalent to initial untrained AlphaZeroAgent
+
+#     Useful as it runs faster, avoiding unnecessary evaluations of untrained p/v network
+
+#     Provide some noise by default
+#     """
+
+#     def __init__(
+#         self,
+#         mcts_kwargs={'noise_fraction': 0.25},
+#         search_kwargs={}
+#     ):
+#         super().__init__(None, mcts_kwargs, search_kwargs)
+
+    
+#     def prior_function(self, state: GameState):
+

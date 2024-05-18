@@ -93,8 +93,7 @@ class MCTSNode:
     def add_dirichlet_noise(self, noise_fraction, alpha):
         if self.dirichlet_added:
             raise RuntimeError('Dirichlet noise already added!')
-        noise = np.random.dirichlet([alpha]*self.n_legal_actions)
-        self.p = (1 - noise_fraction)*self.p + noise_fraction*noise
+        
         self.dirichlet_added = True
         return self.p
 
