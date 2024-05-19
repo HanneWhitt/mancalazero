@@ -1,10 +1,12 @@
 import torch.multiprocessing as mp
-from mancalazero.agent import AlphaZeroAgent, RandomAgent
+from mancalazero.agent import AlphaZeroAgent, AlphaZeroInitial
 from mancalazero.utils import fill, wrap_assign
 from mancalazero.gamestate import GameState
 from torch import nn
 import numpy as np
 import time
+from itertools import permutations
+from collections import Counter
 
 
 class SelfPlay:
@@ -12,38 +14,49 @@ class SelfPlay:
     def __init__(
         self,
         Game: GameState,
-        Network: nn.Module,
-        exploration_moves,
+        exploration_moves: int,
+        Network: nn.Module=None,
+        load_buffer_from=None,
         game_kwargs={},
         network_kwargs={},
         agent_kwargs={},
         buffer_size=None,
-        n_producers=None,
-        start_at_game=0,
-        max_games=None
+        n_producers=None
     ):
         self.Game = Game
-        self.game_kwargs = game_kwargs
         self.Network = Network
         self.exploration_moves = exploration_moves
         self.network_kwargs = network_kwargs
         self.agent_kwargs = agent_kwargs
         self.game_kwargs = game_kwargs
-
-        self.buffer_size = buffer_size
-        if buffer_size is not None:
-            self.queue = mp.Manager().Queue()
-            self.state_buffer = np.zeros((buffer_size, *self.Game.shape), 'uint8')
-            self.outcome_buffer = np.zeros(buffer_size, 'int8')
-            self.policy_buffer = np.zeros((buffer_size, self.Game.total_actions()), 'float32')
-            self.mask_buffer = np.zeros((buffer_size, self.Game.total_actions()), 'uint8')
-            self.filled = 0
-            self.game_number = start_at_game
-
         self.n_producers = mp.cpu_count() - 1 if n_producers is None else n_producers
-        self.max_games = 10**10 if max_games is None else max_games
 
-    
+        if load_buffer_from is None:
+
+            self.buffer_size = buffer_size
+            if buffer_size is not None:
+                
+                self.state_buffer = np.zeros((buffer_size, *self.Game.shape), 'uint8')
+                self.outcome_buffer = np.zeros(buffer_size, 'int8')
+                self.policy_buffer = np.zeros((buffer_size, self.Game.total_actions()), 'float32')
+                self.mask_buffer = np.zeros((buffer_size, self.Game.total_actions()), 'uint8')
+                self.filled = 0
+                self.game_number = 0
+
+        else:
+            npz = np.load(load_buffer_from, allow_pickle=True)
+            self.buffer_size = int(npz['buffer_size'])
+            self.state_buffer = npz['state_buffer']
+            self.outcome_buffer = npz['outcome_buffer']
+            self.policy_buffer = npz['policy_buffer']
+            self.mask_buffer = npz['mask_buffer']
+            self.filled = int(npz['filled'])
+            self.game_number = int(npz['game_number'])
+
+        if self.buffer_size is not None:
+            self.queue = mp.Manager().Queue()
+
+
     def temperature_scheme(self, move_number):
         if move_number < self.exploration_moves:
             return 1
@@ -78,6 +91,25 @@ class SelfPlay:
             return outcome
 
         return position_record, outcome, policy_record, legal_actions_record
+
+
+    def tournament(self, agents, n_games, all_sides=True, sums=True):
+        n_players = len(agents)
+        players = list(range(n_players))
+        if all_sides:
+            per = list(permutations(players))
+        else:
+            per = [players]
+        outcomes = {}
+        for order in per:
+            outcomes[order] = []
+            for g in range(n_games):
+                agent_order = [agents[i] for i in order]
+                outcome = self.play_game(agent_order, outcome_only=True)
+                outcomes[order].append(outcome)
+            if sums:
+                outcomes[order] = Counter(outcomes[order])
+        return outcomes
 
 
     def sample_game(self, positions_per_game=1):
@@ -121,13 +153,10 @@ class SelfPlay:
 
         item_idx = self.game_number + prod_idx 
 
-        # start filling the buffer with random games
-        # TODO: replace with random-prior MCTS
-        agents = [RandomAgent(), RandomAgent()]            
+        # start filling the buffer with alphazero version with random prior
+        agents = [AlphaZeroInitial(), AlphaZeroInitial()]            
 
-        while item_idx < self.max_games:
-
-            #print('Generating game: ', item_idx)
+        while True:
 
             # Generate a new random game every time
             np.random.seed(item_idx)
@@ -151,8 +180,6 @@ class SelfPlay:
             self.queue.put(result)
             item_idx += self.n_producers
     
-            #print(f'Game {item_idx} generated in ', round(time.time() - s, 2))
-
 
     def consumer(self):
         added = 0
@@ -184,7 +211,6 @@ class SelfPlay:
             time.sleep(1)
         for p in self.producers:
             p.start()
-        #self.cons = mp.Process(mp.Process(target=self.producer))
 
 
     def terminate(self):
@@ -194,23 +220,23 @@ class SelfPlay:
         print('TERMINATED')
 
 
+    def sample_from_buffer(self):
+        idx = np.random.randint(self.buffer_size)
+        input_sample = self.state_buffer[idx, :]
+        z_sample = self.outcome_buffer[idx]
+        pi_sample = self.policy_buffer[idx, :]
+        mask_sample = self.mask_buffer[idx, :]
+        return input_sample, z_sample, pi_sample, mask_sample
+    
 
-
-
-    # def buffer_game(self):
-
-    #     z, s, pi, msk = self.format(*self.play_game())
-    #     n_moves = s.shape[0]
-
-    #     overshoot = self.filled + n_moves - self.buffer_size
-
-    #     if overshoot > 0:
-    #         self.buffer
-
-    #     outcome_buffer[moves_in_buffer:end] = z
-    #     state_buffer[moves_in_buffer:end] = s
-    #     policy_buffer[moves_in_buffer:end] = pi
-    #     mask_buffer[moves_in_buffer:end] = msk
-
-    # return 
-
+    def save_buffer(self, npzfile):
+        np.savez(
+            npzfile,
+            state_buffer=self.state_buffer,
+            outcome_buffer=self.outcome_buffer,
+            policy_buffer=self.policy_buffer,
+            mask_buffer=self.mask_buffer,
+            game_number=self.game_number,
+            filled=self.filled,
+            buffer_size=self.buffer_size
+        )

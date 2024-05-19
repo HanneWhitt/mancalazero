@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from mancalazero.gamestate import GameState
 from mancalazero.mcts import MCTSNode
-from mancalazero.utils import fill
+from mancalazero.utils import fill, add_dirichlet_noise
 import numpy as np
 import torch
 
@@ -108,23 +108,34 @@ class AlphaZeroAgent(Agent):
     
 
 
-# class AlphaZeroInitial(AlphaZeroAgent):
+class AlphaZeroInitial(AlphaZeroAgent):
 
-#     """
-#     A version of AlphaZero that uses no network, roughly equivalent to initial untrained AlphaZeroAgent
+    """
+    A version of AlphaZero that uses no network, roughly equivalent to initial untrained AlphaZeroAgent
 
-#     Useful as it runs faster, avoiding unnecessary evaluations of untrained p/v network
+    Useful for initialisation as it runs faster, avoiding unnecessary evaluations of untrained p/v network
 
-#     Provide some noise by default
-#     """
+    Provide some noise to encourage exploration
+    """
 
-#     def __init__(
-#         self,
-#         mcts_kwargs={'noise_fraction': 0.25},
-#         search_kwargs={}
-#     ):
-#         super().__init__(None, mcts_kwargs, search_kwargs)
+    def __init__(
+        self,
+        mcts_kwargs={},
+        search_kwargs={}
+    ):
+        super().__init__(None, mcts_kwargs, search_kwargs)
 
     
-#     def prior_function(self, state: GameState):
+    def prior_function(self, state: GameState):
+        
+        # Uniform distribution with a little dirichlet noise
+        legal_actions = state.legal_actions
+        n_legal_actions = len(legal_actions)
+        uniform_p = 1/n_legal_actions
+        p = np.ones(n_legal_actions)*uniform_p
+        p = add_dirichlet_noise(p, 3, 0.25)
 
+        # Value frwn from narrow normal distribution, clipped to range -0.5, 0.5
+        v = np.clip(np.random.normal(scale=0.15), -0.5, 0.5)
+
+        return p, v

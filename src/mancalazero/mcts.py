@@ -1,4 +1,5 @@
 import numpy as np
+from mancalazero.utils import add_dirichlet_noise
 
 
 class MCTSNode:
@@ -83,19 +84,12 @@ class MCTSNode:
 
             # In self-play, at the root node, we add noise for exploration
             if noise_fraction != 0:
-                self.add_dirichlet_noise(noise_fraction, dirichlet_alpha)
+                self.p = add_dirichlet_noise(self.p, noise_fraction, dirichlet_alpha)
+                self.dirichlet_added = True
 
             # Optionally check that self.p is a valid probability distribution
             if distribution_validity_epsilon:
                 self.check_policy_valid()
-    
-
-    def add_dirichlet_noise(self, noise_fraction, alpha):
-        if self.dirichlet_added:
-            raise RuntimeError('Dirichlet noise already added!')
-        
-        self.dirichlet_added = True
-        return self.p
 
 
     def check_policy_valid(self):
