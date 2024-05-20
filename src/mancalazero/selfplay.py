@@ -19,7 +19,8 @@ class SelfPlay:
         load_buffer_from=None,
         game_kwargs={},
         network_kwargs={},
-        agent_kwargs={},
+        mcts_kwargs={},
+        search_kwargs={},
         buffer_size=None,
         n_producers=None
     ):
@@ -27,35 +28,27 @@ class SelfPlay:
         self.Network = Network
         self.exploration_moves = exploration_moves
         self.network_kwargs = network_kwargs
-        self.agent_kwargs = agent_kwargs
+        self.mcts_kwargs = mcts_kwargs
+        self.search_kwargs = search_kwargs
         self.game_kwargs = game_kwargs
         self.n_producers = mp.cpu_count() - 1 if n_producers is None else n_producers
 
-        if load_buffer_from is None:
+        self.buffer_size = buffer_size
+        if buffer_size is not None:
+            self.queue = mp.Manager().Queue()
+            self.state_buffer = np.zeros((buffer_size, *self.Game.shape), 'uint8')
+            self.outcome_buffer = np.zeros(buffer_size, 'int8')
+            self.policy_buffer = np.zeros((buffer_size, self.Game.total_actions()), 'float32')
+            self.mask_buffer = np.zeros((buffer_size, self.Game.total_actions()), 'uint8')
 
-            self.buffer_size = buffer_size
-            if buffer_size is not None:
-                
-                self.state_buffer = np.zeros((buffer_size, *self.Game.shape), 'uint8')
-                self.outcome_buffer = np.zeros(buffer_size, 'int8')
-                self.policy_buffer = np.zeros((buffer_size, self.Game.total_actions()), 'float32')
-                self.mask_buffer = np.zeros((buffer_size, self.Game.total_actions()), 'uint8')
+            if load_buffer_from is None:
                 self.filled = 0
                 self.game_number = 0
-
-        else:
-            npz = np.load(load_buffer_from, allow_pickle=True)
-            self.buffer_size = int(npz['buffer_size'])
-            self.state_buffer = npz['state_buffer']
-            self.outcome_buffer = npz['outcome_buffer']
-            self.policy_buffer = npz['policy_buffer']
-            self.mask_buffer = npz['mask_buffer']
-            self.filled = int(npz['filled'])
-            self.game_number = int(npz['game_number'])
-
-        if self.buffer_size is not None:
-            self.queue = mp.Manager().Queue()
-
+                self.total_time = 0
+                self.samples_drawn = 0
+            else:
+                self.load_buffer(load_buffer_from)
+                         
 
     def temperature_scheme(self, move_number):
         if move_number < self.exploration_moves:
@@ -154,7 +147,11 @@ class SelfPlay:
         item_idx = self.game_number + prod_idx 
 
         # start filling the buffer with alphazero version with random prior
-        agents = [AlphaZeroInitial(), AlphaZeroInitial()]            
+        init_agent = AlphaZeroInitial(
+            mcts_kwargs=self.mcts_kwargs,
+            search_kwargs=self.search_kwargs
+        )
+        agents = [init_agent, init_agent]        
 
         while True:
 
@@ -171,7 +168,11 @@ class SelfPlay:
                 latest_weights = conn.recv()
                 net = self.Network(**self.network_kwargs)
                 net.load_state_dict(latest_weights)
-                agent = AlphaZeroAgent(net, **self.agent_kwargs)
+                agent = AlphaZeroAgent(
+                    net, 
+                    mcts_kwargs=self.mcts_kwargs,
+                    search_kwargs=self.search_kwargs
+                )
                 agents = [agent, agent]
                 print('WEIGHTS UPDATED')
 
@@ -181,23 +182,29 @@ class SelfPlay:
             item_idx += self.n_producers
     
 
-    def consumer(self):
+    def consumer(self, verbose=True):
         added = 0
-        st = time.time()
+        cons_start = time.time()
         while not self.queue.empty():
             game_record = self.queue.get()
             self.add_to_buffer(*game_record)
             added += 1
-        total_time = time.time() - st
-        print(f'ADDED: {added}, time {total_time}')
-        if added > 0:
-            av_t = total_time/added
-            print('Average per element: ', av_t)
-            
+        now = time.time()
+        batch_time = now - self.batch_start
+        self.batch_start = now
+        self.total_time += batch_time
+        if verbose:
+            cons_time = now - cons_start
+            print('Consumer ran')
+            print(f'{added} games added, {round(batch_time, 1)}s')
+            rate = added/batch_time
+            print(f'Game generation rate: {round(rate, 2)}/s')
+            print(f'Total time: {round(self.total_time, 1)}s')
+            print(f'Consumer time: {round(cons_time, 3)}s')
 
     def message_producers(self, message):
         for parent_conn, child_conn in self.connections:
-            #We only want most recent, so fuyirst empty message buffer
+            #We only want most recent, so first empty message buffer
             while child_conn.poll():
                 child_conn.recv()
             parent_conn.send(message)
@@ -209,6 +216,7 @@ class SelfPlay:
         if start_message is not None:
             self.message_producers(start_message)
             time.sleep(1)
+        self.batch_start = time.time()
         for p in self.producers:
             p.start()
 
@@ -220,16 +228,26 @@ class SelfPlay:
         print('TERMINATED')
 
 
-    def sample_from_buffer(self):
-        idx = np.random.randint(self.buffer_size)
+    def sample_from_buffer(self, sample_size):
+        #Set max idx so don't sample from empty parts of buffer
+        max_idx = min(self.filled, self.buffer_size)
+
+        #Set random seed to ensure we never draw same sample twice
+        np.random.seed(self.samples_drawn)
+        self.samples_drawn += 1
+        idx = np.random.randint(max_idx, size=sample_size)
+
         input_sample = self.state_buffer[idx, :]
         z_sample = self.outcome_buffer[idx]
         pi_sample = self.policy_buffer[idx, :]
         mask_sample = self.mask_buffer[idx, :]
+
         return input_sample, z_sample, pi_sample, mask_sample
     
 
     def save_buffer(self, npzfile):
+        print(f'\nSaving buffer to {npzfile}')
+        save_start = time.time()
         np.savez(
             npzfile,
             state_buffer=self.state_buffer,
@@ -238,5 +256,29 @@ class SelfPlay:
             mask_buffer=self.mask_buffer,
             game_number=self.game_number,
             filled=self.filled,
-            buffer_size=self.buffer_size
+            original_buffer_size=self.buffer_size,
+            total_time=self.total_time,
+            samples_drawn=self.samples_drawn
         )
+        print(f'Saved, time {round(time.time() - save_start, 2)}s')
+
+
+    def load_buffer(self, npzfile):
+        print(f'Loading buffer from {npzfile}')
+        npz = np.load(npzfile, allow_pickle=True)
+        self.filled = int(npz['filled'])
+        self.game_number = int(npz['game_number'])
+        self.total_time = float(npz['total_time'])
+        self.samples_drawn = int(npz['samples_drawn'])
+        original_buffer_size = int(npz['original_buffer_size'])
+        n_loaded_moves = min(original_buffer_size, self.filled)
+        
+        if n_loaded_moves > self.buffer_size:
+            input('Loaded buffer overflows current buffer! Load by cutting?')
+
+        n_load = min(n_loaded_moves, self.buffer_size)
+        self.state_buffer[:n_load] = npz['state_buffer'][:n_load]
+        self.outcome_buffer[:n_load] = npz['outcome_buffer'][:n_load]
+        self.policy_buffer[:n_load] = npz['policy_buffer'][:n_load]
+        self.mask_buffer[:n_load] = npz['mask_buffer'][:n_load]
+        print(f'Successful loaded {n_load} moves')

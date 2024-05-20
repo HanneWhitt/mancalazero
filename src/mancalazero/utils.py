@@ -1,5 +1,7 @@
 import numpy as np
 import torch
+import signal
+import time
 
 
 def fill(length, indexes, values=1):
@@ -34,3 +36,22 @@ def add_dirichlet_noise(p, alpha, noise_fraction):
     noise = np.random.dirichlet([alpha]*len(p))
     with_noise = (1 - noise_fraction)*p + noise_fraction*noise
     return with_noise
+
+
+class SignalHandler:
+    stop = False
+
+    def __init__(self):
+        signal.signal(signal.SIGINT, self.exit_gracefully)
+        signal.signal(signal.SIGTERM, self.exit_gracefully)
+        signal.signal(signal.SIGQUIT, self.exit_gracefully)
+
+    def exit_gracefully(self, *args):
+        self.stop = True
+
+    def sleep(self, t):
+        t = int(t)
+        for _ in range(t):
+            time.sleep(1)
+            if self.stop:
+                break
