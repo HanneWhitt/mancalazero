@@ -38,6 +38,10 @@ def add_dirichlet_noise(p, alpha, noise_fraction):
     return with_noise
 
 
+def format_for_torch(*args):
+    return (torch.from_numpy(a.astype('float32')) for a in args)
+
+
 class SignalHandler:
     stop = False
 
@@ -48,6 +52,9 @@ class SignalHandler:
 
     def exit_gracefully(self, *args):
         self.stop = True
+
+    def stop_signal(self):
+        return self.stop
 
     def sleep(self, t):
         t = int(t)

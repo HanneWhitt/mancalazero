@@ -31,10 +31,10 @@ class SelfPlay:
         self.mcts_kwargs = mcts_kwargs
         self.search_kwargs = search_kwargs
         self.game_kwargs = game_kwargs
-        self.n_producers = mp.cpu_count() - 1 if n_producers is None else n_producers
-
+        
         self.buffer_size = buffer_size
         if buffer_size is not None:
+            self.n_producers = mp.cpu_count() - 1 if n_producers is None else n_producers
             self.queue = mp.Manager().Queue()
             self.state_buffer = np.zeros((buffer_size, *self.Game.shape), 'uint8')
             self.outcome_buffer = np.zeros(buffer_size, 'int8')
@@ -57,13 +57,15 @@ class SelfPlay:
             return 0
 
 
-    def play_game(self, agents, outcome_only=False):
+    def play_game(self, agents, outcome_only=False, move_history=False):
 
-        game = self.Game(**self.game_kwargs)
+        kwargs = self.game_kwargs.copy()
+        game = self.Game(**kwargs)
                 
         position_record = []
         policy_record = []
         legal_actions_record = []
+        history = []
 
         while not game.game_over:    
 
@@ -76,17 +78,23 @@ class SelfPlay:
                 policy_record.append(policy)
                 legal_actions_record.append(game.legal_actions)
 
+            if move_history:
+                history.append(action)
+
             game = game.action(action)
 
         outcome = game.check_outcome()
 
         if outcome_only:
-            return outcome
+            if move_history:
+                return outcome, history
+            else:
+                return outcome, None
+        else:
+            return position_record, outcome, policy_record, legal_actions_record
 
-        return position_record, outcome, policy_record, legal_actions_record
 
-
-    def tournament(self, agents, n_games, all_sides=True, sums=True):
+    def tournament(self, agents, n_games, all_sides=True, sums=True, stop_signal_handle=None, move_history=False):
         n_players = len(agents)
         players = list(range(n_players))
         if all_sides:
@@ -94,14 +102,23 @@ class SelfPlay:
         else:
             per = [players]
         outcomes = {}
-        for order in per:
+        for i, order in enumerate(per):
             outcomes[order] = []
             for g in range(n_games):
+                print(f"\nTournament game {g + 1}/{n_games}, permutation {i + 1}/{len(per)} {order}")
                 agent_order = [agents[i] for i in order]
-                outcome = self.play_game(agent_order, outcome_only=True)
+                np.random.seed(g + i*n_games)
+                outcome, history = self.play_game(agent_order, outcome_only=True, move_history=move_history)
+                print('Outcome:', outcome)
+                if move_history:
+                    print('Moves:', history)
                 outcomes[order].append(outcome)
+                if stop_signal_handle is not None and stop_signal_handle():
+                    break
             if sums:
                 outcomes[order] = Counter(outcomes[order])
+            if stop_signal_handle is not None and stop_signal_handle():
+                break
         return outcomes
 
 
@@ -228,13 +245,16 @@ class SelfPlay:
         print('TERMINATED')
 
 
-    def sample_from_buffer(self, sample_size):
+    def sample_from_buffer(self, sample_size, seed=None):
         #Set max idx so don't sample from empty parts of buffer
         max_idx = min(self.filled, self.buffer_size)
 
-        #Set random seed to ensure we never draw same sample twice
-        np.random.seed(self.samples_drawn)
-        self.samples_drawn += 1
+        if seed is None:
+            #Set seed to ensure we never draw same sample twice
+            np.random.seed(self.samples_drawn)
+            self.samples_drawn += 1
+        else:
+            np.random.seed(seed)
         idx = np.random.randint(max_idx, size=sample_size)
 
         input_sample = self.state_buffer[idx, :]

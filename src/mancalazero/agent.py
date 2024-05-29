@@ -47,11 +47,19 @@ class Agent(ABC):
 
 class RandomAgent(Agent):
 
+    def __init__(self, noise_fraction=0, alpha=3, seed=0):
+        self.noise_fraction = noise_fraction
+        self.alpha = alpha
+        self.seed = seed
+
     def policy(self, state):
         legal_actions = state.legal_actions
         n_legal_actions = len(legal_actions)
         uniform_p = 1/n_legal_actions
         policy = np.ones(n_legal_actions)*uniform_p
+        np.random.seed(self.seed)
+        self.seed += 1
+        policy = add_dirichlet_noise(policy, self.alpha, self.noise_fraction)
         return policy
     
 
@@ -99,10 +107,12 @@ class AlphaZeroAgent(Agent):
         mask = mask[None, :]
 
         self.network.eval()
-        p, v = self.network(observation, mask)
+        p, v = self.network(observation)
 
         p = p.detach().numpy()[0][legal_actions]
-        v = v.detach().numpy()[0][0]
+        p = p/p.sum()
+
+        v = v.detach().numpy()[0]
 
         return p, v
     

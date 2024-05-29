@@ -62,7 +62,7 @@ class MancalaNet(nn.Module):
         return masked/masked.sum(1, keepdim=True)
 
 
-    def forward(self, obs, mask):
+    def forward(self, obs):
 
         # Core
         for layer, batchnorm in zip(self.core, self.core_bn):
@@ -83,7 +83,10 @@ class MancalaNet(nn.Module):
         p = self.p_head[-1](p)
 
         # Softmax for valid probability distribution, mask to zero out illegal moves
-        p = self.masked_softmax(p, mask)
+        # p = self.masked_softmax(p, mask)
+        
+        p = F.softmax(p, dim=1)
+
 
         # Value head
         v = obs.clone()
@@ -97,6 +100,9 @@ class MancalaNet(nn.Module):
 
         # tanh on value to match outcome to range [-1, 1]
         v = F.tanh(v)
+
+        # Flatten
+        v = torch.flatten(v)
 
         return p, v
 
