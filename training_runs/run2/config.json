@@ -1,0 +1,60 @@
+{
+    "game_kwargs": {
+        "move_history": false,
+        "check_validity": true,
+        "starting_stones": 4,
+        "place_in_opponent_store": false,
+        "capture_last_stone_in_zero_hole": true,
+        "no_moves_policy": "end_game"
+    },
+    "network_kwargs":{
+        "shared_layers": [
+            64, 
+            64,
+            64,
+            64
+        ],
+        "policy_head_layers": [
+            32,
+            32
+        ],
+        "value_head_layers": [
+            32,
+            32
+        ]
+    },
+    "load_weights_from": null,
+    "selfplay_exploration_moves": 30,
+    "selfplay_load_buffer_from": "training_runs/run2/buffer.npz",
+    "selfplay_mcts_kwargs": {
+        "c_init": 3,
+        "c_base": 19652,
+        "noise_fraction": 0.25,
+        "dirichlet_alpha": 3,
+        "distribution_validity_epsilon": 0.000001
+    },
+    "selfplay_search_kwargs": {
+        "n_sims": 800
+    },
+    "selfplay_buffer_size": 17200000,
+    "selfplay_n_producers": 10,
+    "min_buffer_before_train": 1,
+    "buffer_savefile": "training_runs/run2/buffer.npz",
+    "evaluation_mcts_kwargs": {
+        "c_init": 3,
+        "c_base": 19652,
+        "noise_fraction": 0,
+        "dirichlet_alpha": 3,
+        "distribution_validity_epsilon": 0.000001
+    },
+    "evaluation_search_kwargs": {
+        "n_sims": 800
+    },
+    "evaluation_n_games": 0,
+    "training_steps": 10000,
+    "batch_size": 2048,
+    "l2_reg_coeff": 0.0001,
+    "learning_rate": 0.1,
+    "momentum": 0.9,
+    "weights_savefile": "training_runs/run2/weights.pt"
+}

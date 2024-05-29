@@ -13,6 +13,7 @@ def train(
     Network: torch.nn.Module,
     game_kwargs={},
     network_kwargs={},
+    load_weights_from=None,
     selfplay_exploration_moves=30,
     selfplay_load_buffer_from=None,
     selfplay_mcts_kwargs={},
@@ -28,11 +29,17 @@ def train(
     batch_size=128,
     l2_reg_coeff=0.0001,
     learning_rate=0.01,
-    momentum=0.9
+    momentum=0.9,
+    weights_savefile=None
 ):
     
     # Handle graceful shutdown on Ctrl+C
     signal_handler = SignalHandler()
+
+    start_weights = None
+    if load_weights_from is not None:
+        print(f'Loading weights from: {load_weights_from}')
+        start_weights = torch.load(load_weights_from)
 
     print('Starting self-play buffer')
     selfplay = SelfPlay(
@@ -47,7 +54,7 @@ def train(
         buffer_size=selfplay_buffer_size,
         n_producers=selfplay_n_producers
     )
-    selfplay.run_buffer()
+    selfplay.run_buffer(start_message=start_weights)
 
     # Wait for the buffer to fill to a pre-specified level
     while selfplay.filled < min_buffer_before_train and not signal_handler.stop:
@@ -58,13 +65,11 @@ def train(
             selfplay.save_buffer(buffer_savefile)
 
 
-    selfplay.terminate()
-    if buffer_savefile is not None:
-        selfplay.consumer()
-        selfplay.save_buffer(buffer_savefile)
-
-
     model = Network(**network_kwargs)
+
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    model.to(device)
+
     loss_fn = AlphaZeroLoss(l2_reg_coeff)
     optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate, momentum=momentum)
 
@@ -90,6 +95,10 @@ def train(
         sample = selfplay.sample_from_buffer(batch_size)
         inpt, z, pi, mask = format_for_torch(*sample)
 
+        inpt = inpt.to(device)
+        z = z.to(device)
+        pi = pi.to(device)
+
         #inpt = inpt/48
 
         model.train()
@@ -110,9 +119,7 @@ def train(
         loss, current = loss.item(), selfplay.samples_drawn * batch_size + len(inpt)
         print(f"loss: {loss:>7f}  [{current:>5d}/{training_steps:>5d}]")
 
-
-
-        
+        weights = model.state_dict()
 
         # t, f = model(inpt)
         # print(pi[:5])
@@ -133,32 +140,40 @@ def train(
 
 
 
+    if evaluation_n_games:
+
+        # Evaluate new agent against
+        model.eval()
+
+        current_agent = AlphaZeroAgent(
+            model,
+            mcts_kwargs=evaluation_mcts_kwargs,
+            search_kwargs=evaluation_search_kwargs
+        )
+        aza_vs_random = evaluator.tournament(
+            [current_agent, random_agent],
+            n_games=evaluation_n_games,
+            stop_signal_handle=signal_handler.stop_signal,
+            move_history=True
+        )
+        aza_vs_azi = evaluator.tournament(
+            [current_agent, initial_agent],
+            n_games=evaluation_n_games,
+            stop_signal_handle=signal_handler.stop_signal,
+            move_history=True
+        )
+        print('AlphaZero vs Random:')
+        print(aza_vs_random)
+        print('AlphaZero vs AlphaZeroInitial:')
+        print(aza_vs_azi)
 
 
-    # Evaluate new agent against
-    model.eval()
-
-    current_agent = AlphaZeroAgent(
-        model,
-        mcts_kwargs=evaluation_mcts_kwargs,
-        search_kwargs=evaluation_search_kwargs
-    )
-    aza_vs_random = evaluator.tournament(
-        [current_agent, random_agent],
-        n_games=evaluation_n_games,
-        stop_signal_handle=signal_handler.stop_signal,
-        move_history=True
-    )
-    aza_vs_azi = evaluator.tournament(
-        [current_agent, initial_agent],
-        n_games=evaluation_n_games,
-        stop_signal_handle=signal_handler.stop_signal,
-        move_history=True
-    )
-    print('AlphaZero vs Random:')
-    print(aza_vs_random)
-    print('AlphaZero vs AlphaZeroInitial:')
-    print(aza_vs_azi)
+    selfplay.terminate()
+    if buffer_savefile is not None:
+        selfplay.consumer()
+        selfplay.save_buffer(buffer_savefile)
 
 
-    
+    if weights_savefile is not None:
+        torch.save(weights, weights_savefile)
+        print(f'Model saved to {weights_savefile}')
