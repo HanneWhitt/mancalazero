@@ -1,7 +1,7 @@
 # mancalazero
 An implementation of AlphaZero for the ancient African game, Mancala!
 
-Part complete. Implemented using the methods described in: 
+Implemented using the methods described in: 
 
 "[Mastering Chess and Shogi by Self-Play with a General Reinforcement Learning Algorithm](https://science.sciencemag.org/content/362/6419/1140.full?ijkey=XGd77kI6W4rSc&keytype=ref&siteid=sci)", Silver et al., DeepMind, 2018
 
